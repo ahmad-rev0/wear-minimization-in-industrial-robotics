@@ -1,6 +1,8 @@
-FROM python:3.12-slim
+FROM python:3.12-slim AS base
 
 WORKDIR /app
+
+RUN addgroup --system robotwin && adduser --system --ingroup robotwin robotwin
 
 COPY deployment/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -10,6 +12,18 @@ COPY pipeline/ pipeline/
 COPY utils/ utils/
 COPY data/ data/
 
+RUN mkdir -p data/uploads && chown -R robotwin:robotwin /app
+
+USER robotwin
+
 EXPOSE 8000
 
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+
+CMD ["gunicorn", "backend.main:app", \
+     "--worker-class", "uvicorn.workers.UvicornWorker", \
+     "--workers", "2", \
+     "--bind", "0.0.0.0:8000", \
+     "--timeout", "120", \
+     "--access-logfile", "-"]

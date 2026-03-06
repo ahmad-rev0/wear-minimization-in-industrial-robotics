@@ -127,3 +127,16 @@ async def get_robot_model():
         )
 
     return build_robot_model(state.results)
+
+
+# ── GET /health ─────────────────────────────────────────────
+
+@router.get("/health")
+async def api_health():
+    """Health check reachable under /api/health (mirrors root /health)."""
+    state = get_state()
+    return {
+        "status": "ok",
+        "service": "robotwin",
+        "pipeline_status": state.status,
+    }
