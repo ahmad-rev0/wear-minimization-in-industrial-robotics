@@ -97,42 +97,79 @@ function JointSphere({
 
       {/* Tooltip */}
       {(isSelected || hovered) && (
-        <Html distanceFactor={4} position={[0, radius + 0.15, 0]} center>
-          <div className="px-3 py-2 rounded-lg bg-zinc-900/95 border border-zinc-700 backdrop-blur-sm shadow-xl">
-            <div className="flex items-center gap-2 mb-1">
+        <Html distanceFactor={4} position={[0, radius + 0.2, 0]} center>
+          <div
+            className="rounded-xl border backdrop-blur-md shadow-2xl pointer-events-none select-none"
+            style={{
+              background: "rgba(10, 10, 16, 0.92)",
+              borderColor: `${joint.color}30`,
+              minWidth: "160px",
+              padding: "12px 14px",
+            }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-zinc-800/60">
+              <div className="flex items-center gap-2">
+                <span
+                  className="w-2.5 h-2.5 rounded-full ring-2 ring-offset-1 ring-offset-transparent"
+                  style={{
+                    background: joint.color,
+                    boxShadow: `0 0 8px ${joint.color}60`,
+                    ringColor: `${joint.color}40`,
+                  }}
+                />
+                <span className="text-[12px] font-semibold capitalize text-zinc-100 tracking-tight">
+                  {joint.joint_id.replace("_", " ")}
+                </span>
+              </div>
               <span
-                className="w-2 h-2 rounded-full"
-                style={{ background: joint.color }}
-              />
-              <span className="text-xs font-semibold capitalize text-zinc-100">
-                {joint.joint_id.replace("_", " ")}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px]">
-              <span className="text-zinc-500">Wear</span>
-              <span className="font-mono" style={{ color: joint.color }}>
-                {(joint.wear_index * 100).toFixed(1)}%
-              </span>
-              <span className="text-zinc-500">Status</span>
-              <span
-                className={`capitalize ${
+                className={`text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
                   joint.wear_status === "severe"
-                    ? "text-red-400"
+                    ? "bg-red-500/15 text-red-400"
                     : joint.wear_status === "moderate"
-                    ? "text-yellow-400"
-                    : "text-green-400"
+                    ? "bg-amber-500/15 text-amber-400"
+                    : "bg-emerald-500/15 text-emerald-400"
                 }`}
               >
                 {joint.wear_status}
               </span>
-              <span className="text-zinc-500">Anomaly</span>
-              <span className="text-zinc-300 font-mono">
-                {(joint.anomaly_rate * 100).toFixed(1)}%
-              </span>
-              <span className="text-zinc-500">Energy</span>
-              <span className="text-zinc-300 font-mono">
-                {joint.signal_energy.toFixed(0)}
-              </span>
+            </div>
+
+            {/* Wear bar */}
+            <div className="mb-3">
+              <div className="flex items-baseline justify-between mb-1">
+                <span className="text-[10px] text-zinc-500 font-medium">Wear Index</span>
+                <span className="text-[13px] font-bold font-mono" style={{ color: joint.color }}>
+                  {(joint.wear_index * 100).toFixed(1)}%
+                </span>
+              </div>
+              <div className="h-[4px] bg-zinc-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${joint.wear_index * 100}%`,
+                    background: `linear-gradient(90deg, ${joint.color}88, ${joint.color})`,
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="flex gap-4">
+              <div>
+                <div className="text-[9px] text-zinc-600 font-medium uppercase tracking-wider mb-0.5">Anomaly</div>
+                <div className="text-[11px] text-zinc-200 font-mono font-medium">
+                  {(joint.anomaly_rate * 100).toFixed(1)}%
+                </div>
+              </div>
+              <div>
+                <div className="text-[9px] text-zinc-600 font-medium uppercase tracking-wider mb-0.5">Energy</div>
+                <div className="text-[11px] text-zinc-200 font-mono font-medium">
+                  {joint.signal_energy >= 1000
+                    ? `${(joint.signal_energy / 1000).toFixed(1)}k`
+                    : joint.signal_energy.toFixed(0)}
+                </div>
+              </div>
             </div>
           </div>
         </Html>
@@ -319,16 +356,16 @@ export function RobotViewer({ model, selectedJoint, onJointClick }: Props) {
 
       {/* Hint */}
       <div className="absolute bottom-3 left-3 z-10 text-[9px] text-zinc-700 font-medium tracking-wide">
-        Click joint for details &middot; Drag to orbit
+        Click joint for details &middot; Drag to orbit &middot; Right-drag to pan
       </div>
 
       <Canvas
-        camera={{ position: [1.8, 1.5, 2.5], fov: 38 }}
+        camera={{ position: [2.2, 1.8, 3.0], fov: 38 }}
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
         onPointerMissed={() => onJointClick(null)}
       >
         <color attach="background" args={["#08080c"]} />
-        <fog attach="fog" args={["#08080c", 5, 14]} />
+        <fog attach="fog" args={["#08080c", 6, 16]} />
 
         <ambientLight intensity={0.25} />
         <directionalLight position={[5, 8, 5]} intensity={1.2} castShadow />
@@ -352,11 +389,13 @@ export function RobotViewer({ model, selectedJoint, onJointClick }: Props) {
         />
 
         <OrbitControls
-          enablePan={false}
-          minDistance={1.5}
-          maxDistance={6}
-          minPolarAngle={0.2}
-          maxPolarAngle={Math.PI / 2}
+          enablePan
+          target={[0, 0.9, 0.25]}
+          minDistance={1.2}
+          maxDistance={8}
+          minPolarAngle={0.1}
+          maxPolarAngle={Math.PI * 0.85}
+          panSpeed={0.6}
         />
         <Environment preset="city" />
       </Canvas>
