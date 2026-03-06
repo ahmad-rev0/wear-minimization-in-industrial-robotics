@@ -51,6 +51,9 @@ export interface JointModel {
   z: number;
   wear_index: number;
   color: string;
+  wear_status: "healthy" | "moderate" | "severe";
+  anomaly_rate: number;
+  signal_energy: number;
 }
 
 export interface RobotModelData {

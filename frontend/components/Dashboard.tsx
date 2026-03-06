@@ -8,10 +8,12 @@ import {
   Upload,
   BarChart3,
   Cpu,
+  RotateCcw,
 } from "lucide-react";
 import { UploadPanel } from "./UploadPanel";
 import { RobotViewer } from "./RobotViewer";
 import { SensorTimeline } from "./SensorTimeline";
+import { SimulationChart } from "./SimulationChart";
 import { MaterialPanel } from "./MaterialPanel";
 import { WearStatsPanel } from "./WearStatsPanel";
 import type { AnalysisResult, RobotModelData } from "@/lib/api";
@@ -41,10 +43,29 @@ export function Dashboard({
 }: Props) {
   const [activeNav, setActiveNav] = useState("dashboard");
   const [selectedJoint, setSelectedJoint] = useState<string | null>(null);
+  const [bottomTab, setBottomTab] = useState<"sensor" | "simulation">(
+    "sensor"
+  );
+  const [showUpload, setShowUpload] = useState(false);
 
   const handleJointClick = useCallback((jointId: string) => {
     setSelectedJoint((prev) => (prev === jointId ? null : jointId));
   }, []);
+
+  const handleReset = useCallback(() => {
+    setShowUpload(true);
+    setSelectedJoint(null);
+  }, []);
+
+  const handleAnalysis = useCallback(
+    (r: AnalysisResult, m: RobotModelData) => {
+      onAnalysisComplete(r, m);
+      setShowUpload(false);
+    },
+    [onAnalysisComplete]
+  );
+
+  const showResults = results && !showUpload;
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -56,7 +77,11 @@ export function Dashboard({
         {NAV_ITEMS.map(({ icon: Icon, label, id }) => (
           <button
             key={id}
-            onClick={() => setActiveNav(id)}
+            onClick={() => {
+              setActiveNav(id);
+              if (id === "upload") setShowUpload(true);
+              else if (results) setShowUpload(false);
+            }}
             title={label}
             className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all ${
               activeNav === id
@@ -83,6 +108,16 @@ export function Dashboard({
           </div>
           <div className="flex items-center gap-3">
             {results && (
+              <button
+                onClick={handleReset}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-all"
+                title="New analysis"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                New Analysis
+              </button>
+            )}
+            {showResults && (
               <span className="text-xs px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">
                 Analysis Ready
               </span>
@@ -98,10 +133,10 @@ export function Dashboard({
         {/* Content grid */}
         <main className="flex-1 overflow-auto p-4 gap-4 grid grid-cols-12 grid-rows-[1fr_auto]">
           {/* Left: 3D Viewer or Upload */}
-          <section className="col-span-12 lg:col-span-8 xl:col-span-8 card p-0 overflow-hidden min-h-[400px]">
-            {!results ? (
+          <section className="col-span-12 lg:col-span-8 card p-0 overflow-hidden min-h-[400px]">
+            {!showResults ? (
               <UploadPanel
-                onAnalysisComplete={onAnalysisComplete}
+                onAnalysisComplete={handleAnalysis}
                 loading={loading}
                 setLoading={setLoading}
               />
@@ -115,8 +150,8 @@ export function Dashboard({
           </section>
 
           {/* Right: Wear stats + materials */}
-          <section className="col-span-12 lg:col-span-4 xl:col-span-4 flex flex-col gap-4 overflow-auto max-h-[calc(100vh-8rem)]">
-            {results ? (
+          <section className="col-span-12 lg:col-span-4 flex flex-col gap-4 overflow-auto max-h-[calc(100vh-8rem)]">
+            {showResults ? (
               <>
                 <WearStatsPanel
                   joints={results.joints}
@@ -135,13 +170,47 @@ export function Dashboard({
             )}
           </section>
 
-          {/* Bottom: Sensor timeline */}
-          {results && (
-            <section className="col-span-12 card p-4 h-[220px]">
-              <SensorTimeline
-                timeline={results.timeline}
-                simulation={results.simulation}
-              />
+          {/* Bottom: Tabbed panel (Sensor timeline / Simulation chart) */}
+          {showResults && (
+            <section className="col-span-12 card p-4 h-[240px]">
+              {/* Tab switcher */}
+              <div className="absolute z-10 flex gap-1 bg-zinc-800/80 rounded-lg p-0.5 mb-2">
+                <button
+                  onClick={() => setBottomTab("sensor")}
+                  className={`px-3 py-1 text-[10px] rounded-md transition-all ${
+                    bottomTab === "sensor"
+                      ? "bg-zinc-700 text-zinc-100"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  Sensor Data
+                </button>
+                <button
+                  onClick={() => setBottomTab("simulation")}
+                  className={`px-3 py-1 text-[10px] rounded-md transition-all ${
+                    bottomTab === "simulation"
+                      ? "bg-zinc-700 text-zinc-100"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  Wear Forecast
+                </button>
+              </div>
+
+              <div className="h-full pt-7">
+                {bottomTab === "sensor" ? (
+                  <SensorTimeline
+                    timeline={results.timeline}
+                    simulation={results.simulation}
+                  />
+                ) : (
+                  <SimulationChart
+                    simulation={results.simulation}
+                    materialScenarios={results.material_scenarios}
+                    selectedJoint={selectedJoint}
+                  />
+                )}
+              </div>
             </section>
           )}
         </main>

@@ -84,6 +84,9 @@ class JointModel(BaseModel):
     z: float
     wear_index: float
     color: str  # hex colour
+    wear_status: str = "healthy"
+    anomaly_rate: float = 0.0
+    signal_energy: float = 0.0
 
 
 class RobotModelData(BaseModel):
