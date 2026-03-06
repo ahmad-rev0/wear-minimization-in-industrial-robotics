@@ -7,11 +7,11 @@ export function cn(...inputs: ClassValue[]) {
 export function statusColor(status: string) {
   switch (status) {
     case "healthy":
-      return "text-green-500";
+      return "text-emerald-400";
     case "moderate":
-      return "text-yellow-500";
+      return "text-amber-400";
     case "severe":
-      return "text-red-500";
+      return "text-red-400";
     default:
       return "text-zinc-400";
   }
@@ -20,12 +20,12 @@ export function statusColor(status: string) {
 export function statusBg(status: string) {
   switch (status) {
     case "healthy":
-      return "bg-green-500/10 border-green-500/30";
+      return "bg-emerald-500/8 border-emerald-500/20";
     case "moderate":
-      return "bg-yellow-500/10 border-yellow-500/30";
+      return "bg-amber-500/8 border-amber-500/20";
     case "severe":
-      return "bg-red-500/10 border-red-500/30";
+      return "bg-red-500/8 border-red-500/20";
     default:
-      return "bg-zinc-500/10 border-zinc-500/30";
+      return "bg-zinc-500/8 border-zinc-500/20";
   }
 }

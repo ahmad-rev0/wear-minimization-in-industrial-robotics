@@ -1,18 +1,19 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg-primary: #09090b;
-  --color-bg-card: #131316;
-  --color-bg-card-hover: #1a1a1f;
-  --color-border: #27272a;
-  --color-border-accent: #3b82f6;
-  --color-text-primary: #fafafa;
+  --color-bg-primary: #06060a;
+  --color-bg-card: #0e0e14;
+  --color-bg-card-hover: #16161e;
+  --color-border: #1e1e28;
+  --color-border-accent: #6366f1;
+  --color-text-primary: #f4f4f5;
   --color-text-secondary: #a1a1aa;
   --color-text-muted: #71717a;
-  --color-accent: #3b82f6;
-  --color-accent-glow: #3b82f620;
-  --color-healthy: #22c55e;
-  --color-moderate: #eab308;
+  --color-accent: #6366f1;
+  --color-accent-secondary: #818cf8;
+  --color-accent-glow: #6366f120;
+  --color-healthy: #10b981;
+  --color-moderate: #f59e0b;
   --color-severe: #ef4444;
 }
 
@@ -20,36 +21,110 @@ body {
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
   font-family: "Inter", system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+code, .font-mono {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
   background: #3f3f46;
-  border-radius: 3px;
 }
 
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 0 0 var(--color-accent-glow); }
-  50% { box-shadow: 0 0 20px 4px var(--color-accent-glow); }
+  50% { box-shadow: 0 0 24px 6px var(--color-accent-glow); }
 }
 
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
 .animate-fade-in {
-  animation: fade-in 0.4s ease-out forwards;
+  animation: fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(99,102,241,0.06) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2.5s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
 }
 
 .card {
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.03) 0%,
+    transparent 50%,
+    rgba(99, 102, 241, 0.02) 100%
+  );
+}
+
+.glass {
+  background: rgba(14, 14, 20, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #818cf8, #6366f1, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  position: relative;
+}
+
+.status-dot::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: inherit;
+  opacity: 0.3;
+  animation: pulse-glow 2s ease-in-out infinite;
 }

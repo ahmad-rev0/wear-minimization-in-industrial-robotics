@@ -1,5 +1,6 @@
 "use client";
 
+import { Radio } from "lucide-react";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -24,12 +25,11 @@ interface Props {
   simulation: JointSimulation[];
 }
 
-export function SensorTimeline({ timeline, simulation }: Props) {
-  // Downsample for rendering performance
+export function SensorTimeline({ timeline }: Props) {
   const step = Math.max(1, Math.floor(timeline.timestamps.length / 300));
   const data = timeline.timestamps
     .filter((_, i) => i % step === 0)
-    .map((ts, i) => {
+    .map((_, i) => {
       const idx = i * step;
       return {
         index: idx,
@@ -43,16 +43,19 @@ export function SensorTimeline({ timeline, simulation }: Props) {
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-sm font-semibold text-zinc-200">
-          Sensor Timeline
-        </h2>
-        <div className="flex gap-3 text-[10px] text-zinc-400">
-          <span className="flex items-center gap-1">
-            <span className="w-3 h-[2px] bg-blue-500 inline-block" />{" "}
+        <div className="flex items-center gap-2">
+          <Radio className="w-3.5 h-3.5 text-indigo-400" />
+          <h2 className="text-[13px] font-semibold text-zinc-200 tracking-tight">
+            Sensor Timeline
+          </h2>
+        </div>
+        <div className="flex gap-3 text-[10px] text-zinc-500">
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-[2px] bg-indigo-400 inline-block rounded-full" />
             Magnitude
           </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />{" "}
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />
             Anomaly
           </span>
         </div>
@@ -62,44 +65,45 @@ export function SensorTimeline({ timeline, simulation }: Props) {
           <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="magGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.2} />
-                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                <stop offset="0%" stopColor="#6366f1" stopOpacity={0.15} />
+                <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e1e24" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#18181f" />
             <XAxis
               dataKey="index"
-              tick={{ fontSize: 10, fill: "#71717a" }}
+              tick={{ fontSize: 10, fill: "#52525b" }}
               tickLine={false}
-              axisLine={{ stroke: "#27272a" }}
+              axisLine={{ stroke: "#1e1e28" }}
               label={{
                 value: "Sample",
                 position: "insideBottomRight",
                 offset: -5,
-                style: { fontSize: 10, fill: "#71717a" },
+                style: { fontSize: 10, fill: "#52525b" },
               }}
             />
             <YAxis
-              tick={{ fontSize: 10, fill: "#71717a" }}
+              tick={{ fontSize: 10, fill: "#52525b" }}
               tickLine={false}
-              axisLine={{ stroke: "#27272a" }}
+              axisLine={{ stroke: "#1e1e28" }}
               width={50}
               label={{
                 value: "Magnitude",
                 angle: -90,
                 position: "insideLeft",
                 offset: 10,
-                style: { fontSize: 10, fill: "#71717a" },
+                style: { fontSize: 10, fill: "#52525b" },
               }}
             />
             <Tooltip
               contentStyle={{
-                background: "#18181b",
-                border: "1px solid #27272a",
-                borderRadius: "8px",
-                fontSize: "12px",
+                background: "#0e0e14",
+                border: "1px solid #1e1e28",
+                borderRadius: "10px",
+                fontSize: "11px",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
               }}
-              labelStyle={{ color: "#a1a1aa" }}
+              labelStyle={{ color: "#71717a", fontSize: "10px" }}
               formatter={(value: number) => [value.toFixed(2), "Mag"]}
             />
             <Area
@@ -111,10 +115,10 @@ export function SensorTimeline({ timeline, simulation }: Props) {
             <Line
               type="monotone"
               dataKey="magnitude"
-              stroke="#3b82f6"
+              stroke="#6366f1"
               strokeWidth={1.5}
               dot={false}
-              activeDot={{ r: 3, fill: "#3b82f6" }}
+              activeDot={{ r: 3, fill: "#818cf8", stroke: "#6366f1" }}
             />
             {anomalyPoints.map((pt) => (
               <ReferenceDot
@@ -123,8 +127,8 @@ export function SensorTimeline({ timeline, simulation }: Props) {
                 y={pt.magnitude}
                 r={3}
                 fill="#ef4444"
-                stroke="#ef4444"
-                strokeWidth={0}
+                stroke="#ef444480"
+                strokeWidth={3}
               />
             ))}
           </ComposedChart>

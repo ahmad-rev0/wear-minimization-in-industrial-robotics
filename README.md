@@ -1,4 +1,4 @@
-# ROBOTWIN
+# ROBOFIX
 
 **AI-powered predictive maintenance and wear optimization for industrial robots.**
 
@@ -100,16 +100,16 @@ The frontend container waits for the backend health check to pass before startin
 ### Backend Only
 
 ```bash
-docker build -f deployment/Dockerfile -t robotwin-backend .
-docker run -p 8000:8000 robotwin-backend
+docker build -f deployment/Dockerfile -t robofix-backend .
+docker run -p 8000:8000 robofix-backend
 ```
 
 ### Frontend Only
 
 ```bash
 cd frontend
-docker build -t robotwin-frontend .
-docker run -p 3000:3000 -e NEXT_PUBLIC_API_URL=http://your-backend:8000 robotwin-frontend
+docker build -t robofix-frontend .
+docker run -p 3000:3000 -e NEXT_PUBLIC_API_URL=http://your-backend:8000 robofix-frontend
 ```
 
 ## Vercel Deployment (Frontend)

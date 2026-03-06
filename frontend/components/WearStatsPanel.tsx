@@ -1,14 +1,20 @@
 "use client";
 
-import { Shield, AlertTriangle, XCircle } from "lucide-react";
+import { Shield, AlertTriangle, XCircle, TrendingUp } from "lucide-react";
 import type { JointWear } from "@/lib/api";
-import { statusColor, statusBg } from "@/lib/utils";
+import { statusColor } from "@/lib/utils";
 
 const STATUS_ICON = {
   healthy: Shield,
   moderate: AlertTriangle,
   severe: XCircle,
 } as const;
+
+const STATUS_BAR_COLOR: Record<string, string> = {
+  healthy: "#10b981",
+  moderate: "#f59e0b",
+  severe: "#ef4444",
+};
 
 interface Props {
   joints: JointWear[];
@@ -19,66 +25,83 @@ interface Props {
 export function WearStatsPanel({ joints, selectedJoint, onJointClick }: Props) {
   const sorted = [...joints].sort((a, b) => b.wear_index - a.wear_index);
   const severeCount = joints.filter((j) => j.wear_status === "severe").length;
+  const avgWear = joints.reduce((s, j) => s + j.wear_index, 0) / joints.length;
 
   return (
     <div className="card p-4 animate-fade-in">
+      {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-zinc-200">Joint Wear Analysis</h2>
-        {severeCount > 0 && (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">
-            {severeCount} critical
+        <div className="flex items-center gap-2">
+          <TrendingUp className="w-3.5 h-3.5 text-indigo-400" />
+          <h2 className="text-[13px] font-semibold text-zinc-200 tracking-tight">
+            Joint Wear Analysis
+          </h2>
+        </div>
+        <div className="flex items-center gap-2">
+          {severeCount > 0 && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/15 font-medium">
+              {severeCount} critical
+            </span>
+          )}
+          <span className="text-[10px] text-zinc-600 font-mono">
+            avg {(avgWear * 100).toFixed(0)}%
           </span>
-        )}
+        </div>
       </div>
-      <div className="space-y-2">
-        {sorted.map((joint) => {
+
+      {/* Joint cards */}
+      <div className="space-y-1.5">
+        {sorted.map((joint, i) => {
           const Icon = STATUS_ICON[joint.wear_status as keyof typeof STATUS_ICON] || Shield;
           const isSelected = selectedJoint === joint.joint_id;
           return (
             <button
               key={joint.joint_id}
               onClick={() => onJointClick(joint.joint_id)}
-              className={`w-full text-left p-3 rounded-lg border transition-all ${
+              className={`w-full text-left p-3 rounded-xl border transition-all duration-200 ${
                 isSelected
-                  ? "border-blue-500/50 bg-blue-500/5"
-                  : `${statusBg(joint.wear_status)} hover:bg-zinc-800/50`
+                  ? "border-indigo-500/40 bg-indigo-500/5 shadow-sm shadow-indigo-500/5"
+                  : "border-transparent bg-zinc-900/40 hover:bg-zinc-800/40"
               }`}
+              style={{ animationDelay: `${i * 60}ms` }}
             >
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Icon className={`w-3.5 h-3.5 ${statusColor(joint.wear_status)}`} />
-                  <span className="text-sm font-medium text-zinc-200 capitalize">
+                  <span className="text-[13px] font-medium text-zinc-200 capitalize tracking-tight">
                     {joint.joint_id.replace("_", " ")}
                   </span>
                 </div>
-                <span className={`text-xs font-mono ${statusColor(joint.wear_status)}`}>
+                <span className={`text-[11px] font-mono font-medium ${statusColor(joint.wear_status)}`}>
                   {(joint.wear_index * 100).toFixed(1)}%
                 </span>
               </div>
+
               {/* Progress bar */}
-              <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+              <div className="h-[5px] bg-zinc-800/80 rounded-full overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-all duration-700"
+                  className="h-full rounded-full transition-all duration-1000 ease-out"
                   style={{
                     width: `${joint.wear_index * 100}%`,
-                    background:
-                      joint.wear_status === "severe"
-                        ? "#ef4444"
-                        : joint.wear_status === "moderate"
-                        ? "#eab308"
-                        : "#22c55e",
+                    background: `linear-gradient(90deg, ${STATUS_BAR_COLOR[joint.wear_status]}88, ${STATUS_BAR_COLOR[joint.wear_status]})`,
                   }}
                 />
               </div>
+
+              {/* Expanded details */}
               {isSelected && (
-                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-zinc-400">
-                  <div>
-                    Anomaly rate:{" "}
-                    <span className="text-zinc-200">{(joint.anomaly_rate * 100).toFixed(1)}%</span>
+                <div className="mt-2.5 pt-2.5 border-t border-zinc-800/60 grid grid-cols-2 gap-2 text-[11px]">
+                  <div className="text-zinc-500">
+                    Anomaly rate{" "}
+                    <span className="text-zinc-200 font-mono font-medium">
+                      {(joint.anomaly_rate * 100).toFixed(1)}%
+                    </span>
                   </div>
-                  <div>
-                    Energy:{" "}
-                    <span className="text-zinc-200">{joint.signal_energy.toFixed(0)}</span>
+                  <div className="text-zinc-500">
+                    Signal energy{" "}
+                    <span className="text-zinc-200 font-mono font-medium">
+                      {joint.signal_energy.toFixed(0)}
+                    </span>
                   </div>
                 </div>
               )}

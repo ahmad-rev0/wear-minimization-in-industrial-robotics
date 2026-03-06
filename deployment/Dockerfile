@@ -2,7 +2,7 @@ FROM python:3.12-slim AS base
 
 WORKDIR /app
 
-RUN addgroup --system robotwin && adduser --system --ingroup robotwin robotwin
+RUN addgroup --system robofix && adduser --system --ingroup robofix robofix
 
 COPY deployment/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -12,9 +12,9 @@ COPY pipeline/ pipeline/
 COPY utils/ utils/
 COPY data/ data/
 
-RUN mkdir -p data/uploads && chown -R robotwin:robotwin /app
+RUN mkdir -p data/uploads && chown -R robofix:robofix /app
 
-USER robotwin
+USER robofix
 
 EXPOSE 8000
 

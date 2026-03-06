@@ -275,9 +275,9 @@ function RobotArm({
         <mesh position={[0, -0.035, 0]}>
           <torusGeometry args={[0.23, 0.005, 8, 64]} />
           <meshStandardMaterial
-            color="#3b82f6"
-            emissive="#3b82f6"
-            emissiveIntensity={0.3}
+            color="#6366f1"
+            emissive="#6366f1"
+            emissiveIntensity={0.35}
           />
         </mesh>
       </group>
@@ -305,21 +305,21 @@ export function RobotViewer({ model, selectedJoint, onJointClick }: Props) {
   return (
     <div className="w-full h-full relative">
       {/* Legend overlay */}
-      <div className="absolute top-3 left-3 z-10 flex gap-3 text-[10px] text-zinc-400">
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-green-500" /> Healthy
+      <div className="absolute top-3 left-3 z-10 flex gap-3 text-[10px] text-zinc-500 glass px-3 py-1.5 rounded-lg border border-zinc-800/40">
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-500" /> Healthy
         </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-yellow-500" /> Moderate
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-amber-500" /> Moderate
         </span>
-        <span className="flex items-center gap-1">
+        <span className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> Severe
         </span>
       </div>
 
       {/* Hint */}
-      <div className="absolute bottom-3 left-3 z-10 text-[10px] text-zinc-600">
-        Click a joint for details. Drag to orbit.
+      <div className="absolute bottom-3 left-3 z-10 text-[9px] text-zinc-700 font-medium tracking-wide">
+        Click joint for details &middot; Drag to orbit
       </div>
 
       <Canvas
@@ -332,7 +332,7 @@ export function RobotViewer({ model, selectedJoint, onJointClick }: Props) {
 
         <ambientLight intensity={0.25} />
         <directionalLight position={[5, 8, 5]} intensity={1.2} castShadow />
-        <pointLight position={[-3, 2, -3]} intensity={0.5} color="#3b82f6" />
+        <pointLight position={[-3, 2, -3]} intensity={0.5} color="#6366f1" />
         <pointLight position={[3, 0.5, 2]} intensity={0.2} color="#8b5cf6" />
 
         <RobotArm

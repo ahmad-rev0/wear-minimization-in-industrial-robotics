@@ -1,5 +1,5 @@
 """
-API route definitions for the ROBOTWIN backend.
+API route definitions for the ROBOFIX backend.
 
 Endpoints:
     POST /upload_dataset   — upload a robot sensor CSV
@@ -137,6 +137,6 @@ async def api_health():
     state = get_state()
     return {
         "status": "ok",
-        "service": "robotwin",
+        "service": "robofix",
         "pipeline_status": state.status,
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { TrendingUp } from "lucide-react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -14,15 +15,15 @@ import {
 import type { JointSimulation, MaterialScenario } from "@/lib/api";
 
 const JOINT_COLORS: Record<string, string> = {
-  base: "#3b82f6",
+  base: "#6366f1",
   shoulder: "#8b5cf6",
   elbow: "#06b6d4",
-  wrist_1: "#f97316",
+  wrist_1: "#f59e0b",
   wrist_2: "#ec4899",
   wrist_3: "#ef4444",
 };
 
-const MATERIAL_COLORS = ["#22c55e", "#06b6d4", "#a855f7"];
+const MATERIAL_COLORS = ["#10b981", "#06b6d4", "#a855f7"];
 
 interface Props {
   simulation: JointSimulation[];
@@ -78,15 +79,18 @@ export function SimulationChart({
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-sm font-semibold text-zinc-200">
-          Wear Projection
-        </h2>
-        <div className="flex gap-1 bg-zinc-800/80 rounded-lg p-0.5">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="w-3.5 h-3.5 text-indigo-400" />
+          <h2 className="text-[13px] font-semibold text-zinc-200 tracking-tight">
+            Wear Projection
+          </h2>
+        </div>
+        <div className="flex gap-0.5 bg-zinc-900/90 rounded-lg p-0.5 border border-zinc-800/60">
           <button
             onClick={() => setMode("joints")}
-            className={`px-2.5 py-1 text-[10px] rounded-md transition-all ${
+            className={`px-2.5 py-1 text-[10px] rounded-md transition-all font-medium ${
               mode === "joints"
-                ? "bg-zinc-700 text-zinc-100"
+                ? "bg-indigo-500/15 text-indigo-300"
                 : "text-zinc-500 hover:text-zinc-300"
             }`}
           >
@@ -94,9 +98,9 @@ export function SimulationChart({
           </button>
           <button
             onClick={() => setMode("materials")}
-            className={`px-2.5 py-1 text-[10px] rounded-md transition-all ${
+            className={`px-2.5 py-1 text-[10px] rounded-md transition-all font-medium ${
               mode === "materials"
-                ? "bg-zinc-700 text-zinc-100"
+                ? "bg-indigo-500/15 text-indigo-300"
                 : "text-zinc-500 hover:text-zinc-300"
             }`}
           >
@@ -112,35 +116,36 @@ export function SimulationChart({
               data={jointData}
               margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e1e24" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#18181f" />
               <XAxis
                 dataKey="time"
-                tick={{ fontSize: 10, fill: "#71717a" }}
+                tick={{ fontSize: 10, fill: "#52525b" }}
                 tickLine={false}
-                axisLine={{ stroke: "#27272a" }}
+                axisLine={{ stroke: "#1e1e28" }}
                 label={{
                   value: "Time",
                   position: "insideBottomRight",
                   offset: -5,
-                  style: { fontSize: 10, fill: "#71717a" },
+                  style: { fontSize: 10, fill: "#52525b" },
                 }}
               />
               <YAxis
                 domain={[0, 1]}
-                tick={{ fontSize: 10, fill: "#71717a" }}
+                tick={{ fontSize: 10, fill: "#52525b" }}
                 tickLine={false}
-                axisLine={{ stroke: "#27272a" }}
+                axisLine={{ stroke: "#1e1e28" }}
                 width={35}
                 tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
               />
               <Tooltip
                 contentStyle={{
-                  background: "#18181b",
-                  border: "1px solid #27272a",
-                  borderRadius: "8px",
+                  background: "#0e0e14",
+                  border: "1px solid #1e1e28",
+                  borderRadius: "10px",
                   fontSize: "11px",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
                 }}
-                labelStyle={{ color: "#a1a1aa" }}
+                labelStyle={{ color: "#71717a", fontSize: "10px" }}
                 formatter={(value: number, name: unknown) => [
                   `${(Number(value) * 100).toFixed(1)}%`,
                   typeof name === "string" ? name.replace("_", " ") : "",
@@ -171,7 +176,7 @@ export function SimulationChart({
               <Line
                 type="monotone"
                 dataKey={() => 0.3}
-                stroke="#22c55e"
+                stroke="#10b98140"
                 strokeWidth={1}
                 strokeDasharray="6 3"
                 dot={false}
@@ -180,7 +185,7 @@ export function SimulationChart({
               <Line
                 type="monotone"
                 dataKey={() => 0.7}
-                stroke="#ef4444"
+                stroke="#ef444440"
                 strokeWidth={1}
                 strokeDasharray="6 3"
                 dot={false}
@@ -192,27 +197,28 @@ export function SimulationChart({
               data={materialData.data}
               margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e1e24" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#18181f" />
               <XAxis
                 dataKey="time"
-                tick={{ fontSize: 10, fill: "#71717a" }}
+                tick={{ fontSize: 10, fill: "#52525b" }}
                 tickLine={false}
-                axisLine={{ stroke: "#27272a" }}
+                axisLine={{ stroke: "#1e1e28" }}
               />
               <YAxis
                 domain={[0, 1]}
-                tick={{ fontSize: 10, fill: "#71717a" }}
+                tick={{ fontSize: 10, fill: "#52525b" }}
                 tickLine={false}
-                axisLine={{ stroke: "#27272a" }}
+                axisLine={{ stroke: "#1e1e28" }}
                 width={35}
                 tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
               />
               <Tooltip
                 contentStyle={{
-                  background: "#18181b",
-                  border: "1px solid #27272a",
-                  borderRadius: "8px",
+                  background: "#0e0e14",
+                  border: "1px solid #1e1e28",
+                  borderRadius: "10px",
                   fontSize: "11px",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
                 }}
                 formatter={(value: number, name: unknown) => [
                   `${(Number(value) * 100).toFixed(1)}%`,
