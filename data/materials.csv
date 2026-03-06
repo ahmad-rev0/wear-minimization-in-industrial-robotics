@@ -1,0 +1,16 @@
+material_name,hardness,wear_coefficient,density,friction_coefficient
+Hardened Steel AISI 52100,850,0.00120,7.81,0.60
+Stainless Steel 440C,620,0.00180,7.68,0.55
+Tool Steel D2,780,0.00095,7.70,0.50
+Tungsten Carbide WC-Co,1600,0.00015,15.63,0.20
+Silicon Nitride Si3N4,1500,0.00025,3.21,0.15
+Alumina Al2O3,1400,0.00040,3.95,0.25
+Zirconia ZrO2,1300,0.00035,6.05,0.30
+Bronze CuSn8,180,0.00300,8.80,0.35
+UHMWPE,65,0.00500,0.93,0.10
+Titanium Alloy Ti-6Al-4V,350,0.00200,4.43,0.45
+Chromium Carbide Cr3C2,1100,0.00050,6.68,0.28
+Diamond-Like Carbon DLC,3000,0.00008,3.50,0.05
+Nitrided Steel 38CrMoAl,1050,0.00060,7.85,0.40
+Stellite 6,450,0.00110,8.44,0.38
+Inconel 718,400,0.00170,8.19,0.48
