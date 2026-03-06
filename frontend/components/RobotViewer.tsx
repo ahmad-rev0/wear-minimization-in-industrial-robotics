@@ -290,7 +290,7 @@ function RobotArm({
 interface Props {
   model: RobotModelData | null;
   selectedJoint: string | null;
-  onJointClick: (id: string) => void;
+  onJointClick: (id: string | null) => void;
 }
 
 export function RobotViewer({ model, selectedJoint, onJointClick }: Props) {
@@ -325,6 +325,7 @@ export function RobotViewer({ model, selectedJoint, onJointClick }: Props) {
       <Canvas
         camera={{ position: [1.8, 1.5, 2.5], fov: 38 }}
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
+        onPointerMissed={() => onJointClick(null)}
       >
         <color attach="background" args={["#08080c"]} />
         <fog attach="fog" args={["#08080c", 5, 14]} />

@@ -48,8 +48,10 @@ export function Dashboard({
   );
   const [showUpload, setShowUpload] = useState(false);
 
-  const handleJointClick = useCallback((jointId: string) => {
-    setSelectedJoint((prev) => (prev === jointId ? null : jointId));
+  const handleJointClick = useCallback((jointId: string | null) => {
+    setSelectedJoint((prev) =>
+      jointId === null ? null : prev === jointId ? null : jointId
+    );
   }, []);
 
   const handleReset = useCallback(() => {

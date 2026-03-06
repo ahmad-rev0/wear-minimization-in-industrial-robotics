@@ -141,9 +141,9 @@ export function SimulationChart({
                   fontSize: "11px",
                 }}
                 labelStyle={{ color: "#a1a1aa" }}
-                formatter={(value: number, name: string) => [
-                  `${(value * 100).toFixed(1)}%`,
-                  name.replace("_", " "),
+                formatter={(value: number, name: unknown) => [
+                  `${(Number(value) * 100).toFixed(1)}%`,
+                  typeof name === "string" ? name.replace("_", " ") : "",
                 ]}
               />
               <Legend
@@ -214,9 +214,9 @@ export function SimulationChart({
                   borderRadius: "8px",
                   fontSize: "11px",
                 }}
-                formatter={(value: number, name: string) => [
-                  `${(value * 100).toFixed(1)}%`,
-                  name,
+                formatter={(value: number, name: unknown) => [
+                  `${(Number(value) * 100).toFixed(1)}%`,
+                  typeof name === "string" ? name : "",
                 ]}
               />
               <Legend wrapperStyle={{ fontSize: "10px" }} />
