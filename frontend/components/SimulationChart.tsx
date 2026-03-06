@@ -92,13 +92,13 @@ export function SimulationChart({
       <div className="flex-shrink-0 flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-2">
           <TrendingUp className="w-3.5 h-3.5 text-lime-400" />
-          <h2 className="text-[13px] font-semibold text-zinc-200 tracking-tight">
+          <h2 className="text-[14px] font-semibold text-zinc-200 tracking-tight">
             Wear Projection
           </h2>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-[9px] text-zinc-500 font-medium">X</span>
+            <span className="text-[10.5px] text-zinc-500 font-medium">X</span>
             <input
               type="range"
               className="chart-zoom w-16"
@@ -109,12 +109,12 @@ export function SimulationChart({
               onChange={(e) => setXZoom(Number(e.target.value))}
               title={`X-axis zoom: ${xZoom}%`}
             />
-            <span className="text-[9px] text-lime-400 font-mono w-8 text-right">
+            <span className="text-[10.5px] text-lime-400 font-mono w-9 text-right">
               {xZoom}%
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[9px] text-zinc-500 font-medium">Y</span>
+            <span className="text-[10.5px] text-zinc-500 font-medium">Y</span>
             <input
               type="range"
               className="chart-zoom w-16"
@@ -125,14 +125,14 @@ export function SimulationChart({
               onChange={(e) => setYMax(Number(e.target.value))}
               title={`Y-axis max: ${yMax}%`}
             />
-            <span className="text-[9px] text-lime-400 font-mono w-8 text-right">
+            <span className="text-[10.5px] text-lime-400 font-mono w-9 text-right">
               {yMax}%
             </span>
           </div>
           <div className="flex gap-0.5 bg-zinc-900/90 rounded-lg p-0.5 border border-zinc-800/60">
             <button
               onClick={() => setMode("joints")}
-              className={`px-2.5 py-1 text-[10px] rounded-md transition-all font-medium ${
+              className={`px-3 py-1 text-[11.5px] rounded-md transition-all font-medium ${
                 mode === "joints"
                   ? "bg-lime-500/15 text-lime-300"
                   : "text-zinc-500 hover:text-zinc-300"
@@ -142,7 +142,7 @@ export function SimulationChart({
             </button>
             <button
               onClick={() => setMode("materials")}
-              className={`px-2.5 py-1 text-[10px] rounded-md transition-all font-medium ${
+              className={`px-3 py-1 text-[11.5px] rounded-md transition-all font-medium ${
                 mode === "materials"
                   ? "bg-lime-500/15 text-lime-300"
                   : "text-zinc-500 hover:text-zinc-300"

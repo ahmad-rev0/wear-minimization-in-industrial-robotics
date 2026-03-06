@@ -36,54 +36,54 @@ const NAV_ITEMS: {
     icon: Activity,
     label: "Dashboard",
     id: "dashboard",
-    desc: "Full overview with 3D model, wear stats, and charts",
+    desc: "Complete system overview — 3D model, wear statistics, and sensor charts",
   },
   {
     icon: Bot,
     label: "3D Viewer",
     id: "viewer",
-    desc: "Interactive 3D robot model with wear-coded joints",
+    desc: "Interactive 3D robot visualization with color-coded wear indicators",
   },
   {
     icon: BarChart3,
     label: "Sensors",
     id: "sensors",
-    desc: "Sensor magnitude timeline and wear forecast charts",
+    desc: "Magnetometer signal analysis and projected wear degradation curves",
   },
   {
     icon: FlaskConical,
     label: "Materials",
     id: "materials",
-    desc: "Joint diagnostics and material recommendations",
+    desc: "Per-joint wear diagnostics and ranked material upgrade candidates",
   },
   {
     icon: Upload,
     label: "Upload",
     id: "upload",
-    desc: "Upload a new sensor CSV or run the demo analysis",
+    desc: "Import sensor data from CSV or run analysis on the bundled demo dataset",
   },
 ];
 
 const VIEW_HEADINGS: Record<View, { title: string; subtitle: string }> = {
   dashboard: {
     title: "Dashboard",
-    subtitle: "Complete system overview with 3D visualization, wear analysis, and sensor data",
+    subtitle: "Unified system overview combining 3D visualization, wear analytics, and real-time sensor data",
   },
   viewer: {
     title: "3D Robot Viewer",
-    subtitle: "Click on joints to inspect wear metrics. Drag to orbit, right-drag to pan.",
+    subtitle: "Select any joint to inspect detailed wear metrics — orbit, pan, and zoom to explore the model",
   },
   sensors: {
     title: "Sensor Analytics",
-    subtitle: "Raw magnetometer signal timeline and projected wear degradation curves",
+    subtitle: "Magnetometer signal timeline with anomaly detection and projected wear degradation forecasts",
   },
   materials: {
     title: "Materials & Diagnostics",
-    subtitle: "Per-joint wear breakdown and ranked material upgrade recommendations",
+    subtitle: "Comprehensive per-joint wear breakdown with ranked material upgrade recommendations",
   },
   upload: {
     title: "Upload Dataset",
-    subtitle: "Import a new sensor CSV file or run analysis on the bundled demo dataset",
+    subtitle: "Import a sensor CSV file for analysis or run diagnostics on the bundled demonstration dataset",
   },
 };
 
@@ -166,10 +166,10 @@ export function Dashboard({
               {hoveredNav === id && (
                 <div className="absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2 z-50 pointer-events-none animate-fade-in">
                   <div className="glass border border-zinc-800/60 rounded-xl px-3.5 py-2.5 shadow-2xl min-w-[200px]">
-                    <p className="text-[12px] font-semibold text-zinc-100 mb-0.5">
+                    <p className="text-[13px] font-semibold text-zinc-100 mb-0.5">
                       {label}
                     </p>
-                    <p className="text-[10px] text-zinc-500 leading-relaxed">
+                    <p className="text-[11.5px] text-zinc-400 leading-relaxed">
                       {desc}
                     </p>
                   </div>
@@ -205,7 +205,7 @@ export function Dashboard({
             {results && activeView !== "upload" && (
               <button
                 onClick={() => setActiveView("upload")}
-                className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition-all font-medium"
+                className="flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition-all font-medium"
                 title="New analysis"
               >
                 <RotateCcw className="w-3 h-3" />
@@ -213,15 +213,15 @@ export function Dashboard({
               </button>
             )}
             {results && activeView !== "upload" && (
-              <span className="flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+              <span className="flex items-center gap-1.5 text-[12px] px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
                 <span className="status-dot bg-emerald-400" />
-                Analysis Ready
+                Analysis Complete
               </span>
             )}
             {loading && (
-              <span className="flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-full bg-lime-500/10 text-lime-400 border border-lime-500/20 font-medium animate-pulse">
-                <Sparkles className="w-3 h-3" />
-                Processing...
+              <span className="flex items-center gap-1.5 text-[12px] px-3 py-1 rounded-full bg-lime-500/10 text-lime-400 border border-lime-500/20 font-medium animate-pulse">
+                <Sparkles className="w-3.5 h-3.5" />
+                Processing Pipeline...
               </span>
             )}
           </div>
@@ -232,7 +232,7 @@ export function Dashboard({
           <h2 className="text-[14px] font-semibold text-zinc-100 tracking-tight">
             {heading.title}
           </h2>
-          <p className="text-[11px] text-zinc-500 mt-0.5">
+          <p className="text-[12.5px] text-zinc-500 mt-0.5 leading-relaxed">
             {heading.subtitle}
           </p>
         </div>
@@ -328,11 +328,11 @@ export function Dashboard({
                 <Bot className="w-7 h-7 text-zinc-600" />
               </div>
               <div>
-                <p className="text-zinc-400 text-sm font-medium mb-1">
-                  No analysis yet
+                <p className="text-zinc-400 text-[15px] font-medium mb-1">
+                  No Analysis Available
                 </p>
-                <p className="text-zinc-600 text-xs">
-                  Upload a sensor dataset to begin wear diagnostics
+                <p className="text-zinc-500 text-[13px]">
+                  Upload a sensor dataset to begin predictive wear diagnostics
                 </p>
               </div>
             </div>
@@ -359,7 +359,7 @@ function BottomTabs({
       <div className="flex-shrink-0 mb-2 flex gap-0.5 bg-zinc-900/90 rounded-lg p-0.5 border border-zinc-800/60 w-fit">
         <button
           onClick={() => setBottomTab("sensor")}
-          className={`px-3 py-1 text-[10px] rounded-md transition-all font-medium ${
+          className={`px-3.5 py-1 text-[11.5px] rounded-md transition-all font-medium ${
             bottomTab === "sensor"
               ? "bg-lime-500/15 text-lime-300"
               : "text-zinc-500 hover:text-zinc-300"
@@ -369,7 +369,7 @@ function BottomTabs({
         </button>
         <button
           onClick={() => setBottomTab("simulation")}
-          className={`px-3 py-1 text-[10px] rounded-md transition-all font-medium ${
+          className={`px-3.5 py-1 text-[11.5px] rounded-md transition-all font-medium ${
             bottomTab === "simulation"
               ? "bg-lime-500/15 text-lime-300"
               : "text-zinc-500 hover:text-zinc-300"

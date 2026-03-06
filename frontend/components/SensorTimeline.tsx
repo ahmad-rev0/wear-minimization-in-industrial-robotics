@@ -71,23 +71,23 @@ export function SensorTimeline({ timeline }: Props) {
       <div className="flex-shrink-0 flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-2">
           <Radio className="w-3.5 h-3.5 text-lime-400" />
-          <h2 className="text-[13px] font-semibold text-zinc-200 tracking-tight">
+          <h2 className="text-[14px] font-semibold text-zinc-200 tracking-tight">
             Sensor Timeline
           </h2>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex gap-3 text-[10px] text-zinc-500">
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-[2px] bg-lime-400 inline-block rounded-full" />
+          <div className="flex gap-4 text-[11.5px] text-zinc-400">
+            <span className="flex items-center gap-2 font-medium">
+              <span className="w-3.5 h-[2px] bg-lime-400 inline-block rounded-full" />
               Magnitude
             </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />
+            <span className="flex items-center gap-2 font-medium">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-400 inline-block" />
               Anomaly
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[9px] text-zinc-500 font-medium">X</span>
+            <span className="text-[10.5px] text-zinc-500 font-medium">X</span>
             <input
               type="range"
               className="chart-zoom w-16"
@@ -98,12 +98,12 @@ export function SensorTimeline({ timeline }: Props) {
               onChange={(e) => setXZoom(Number(e.target.value))}
               title={`X-axis zoom: ${xZoom}%`}
             />
-            <span className="text-[9px] text-lime-400 font-mono w-8 text-right">
+            <span className="text-[10.5px] text-lime-400 font-mono w-9 text-right">
               {xZoom}%
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[9px] text-zinc-500 font-medium">Y</span>
+            <span className="text-[10.5px] text-zinc-500 font-medium">Y</span>
             <input
               type="range"
               className="chart-zoom w-16"
@@ -114,7 +114,7 @@ export function SensorTimeline({ timeline }: Props) {
               onChange={(e) => setYZoom(Number(e.target.value))}
               title={`Y-axis zoom: ${yZoom}%`}
             />
-            <span className="text-[9px] text-lime-400 font-mono w-8 text-right">
+            <span className="text-[10.5px] text-lime-400 font-mono w-9 text-right">
               {yZoom}%
             </span>
           </div>

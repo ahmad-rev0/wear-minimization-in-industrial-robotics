@@ -13,12 +13,12 @@ export function MaterialPanel({ recommendations }: Props) {
       <div className="flex-shrink-0 flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Layers className="w-3.5 h-3.5 text-lime-400" />
-          <h2 className="text-[13px] font-semibold text-zinc-200 tracking-tight">
+          <h2 className="text-[14px] font-semibold text-zinc-200 tracking-tight">
             Material Recommendations
           </h2>
         </div>
-        <span className="text-[10px] text-zinc-600 font-mono">
-          {recommendations.length} candidates
+        <span className="text-[11.5px] text-zinc-500 font-mono">
+          {recommendations.length} Candidates
         </span>
       </div>
 
@@ -49,7 +49,7 @@ export function MaterialPanel({ recommendations }: Props) {
                     {mat.material_name}
                   </span>
                 </div>
-                <span className="text-[11px] font-mono font-medium text-emerald-400">
+                <span className="text-[12px] font-mono font-medium text-emerald-400">
                   -{mat.wear_reduction_pct}%
                 </span>
               </div>
@@ -66,15 +66,15 @@ export function MaterialPanel({ recommendations }: Props) {
                 />
               </div>
 
-              <div className="flex gap-4 text-[10px] text-zinc-500">
+              <div className="flex gap-4 text-[11px] text-zinc-500">
                 <span>
                   Hardness <span className="text-zinc-400 font-mono">{mat.hardness} HV</span>
                 </span>
                 <span>
-                  Friction <span className="text-zinc-400 font-mono">{mat.friction_coefficient}</span>
+                  Friction Coeff <span className="text-zinc-400 font-mono">{mat.friction_coefficient}</span>
                 </span>
                 <span>
-                  Wear coeff <span className="text-zinc-400 font-mono">{mat.wear_coefficient.toExponential(1)}</span>
+                  Wear Coeff <span className="text-zinc-400 font-mono">{mat.wear_coefficient.toExponential(1)}</span>
                 </span>
               </div>
             </div>

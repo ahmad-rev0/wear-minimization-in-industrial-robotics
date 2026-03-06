@@ -123,12 +123,12 @@ function JointSphere({
                     boxShadow: `0 0 8px ${joint.color}60, 0 0 0 2px ${joint.color}40`,
                   }}
                 />
-                <span className="text-[12px] font-semibold capitalize text-zinc-100 tracking-tight">
+                <span className="text-[13px] font-semibold capitalize text-zinc-100 tracking-tight">
                   {joint.joint_id.replace("_", " ")}
                 </span>
               </div>
               <span
-                className={`text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
+                className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md ${
                   joint.wear_status === "severe"
                     ? "bg-red-500/15 text-red-400"
                     : joint.wear_status === "moderate"
@@ -143,8 +143,8 @@ function JointSphere({
             {/* Wear bar */}
             <div className="mb-3">
               <div className="flex items-baseline justify-between mb-1">
-                <span className="text-[10px] text-zinc-500 font-medium">Wear Index</span>
-                <span className="text-[13px] font-bold font-mono" style={{ color: joint.color }}>
+                <span className="text-[11px] text-zinc-400 font-medium">Wear Index</span>
+                <span className="text-[14px] font-bold font-mono" style={{ color: joint.color }}>
                   {(joint.wear_index * 100).toFixed(1)}%
                 </span>
               </div>
@@ -162,14 +162,14 @@ function JointSphere({
             {/* Stats */}
             <div className="flex gap-4">
               <div>
-                <div className="text-[9px] text-zinc-600 font-medium uppercase tracking-wider mb-0.5">Anomaly</div>
-                <div className="text-[11px] text-zinc-200 font-mono font-medium">
+                <div className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Anomaly Rate</div>
+                <div className="text-[12px] text-zinc-200 font-mono font-medium">
                   {(joint.anomaly_rate * 100).toFixed(1)}%
                 </div>
               </div>
               <div>
-                <div className="text-[9px] text-zinc-600 font-medium uppercase tracking-wider mb-0.5">Energy</div>
-                <div className="text-[11px] text-zinc-200 font-mono font-medium">
+                <div className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Signal Energy</div>
+                <div className="text-[12px] text-zinc-200 font-mono font-medium">
                   {joint.signal_energy >= 1000
                     ? `${(joint.signal_energy / 1000).toFixed(1)}k`
                     : joint.signal_energy.toFixed(0)}
@@ -337,21 +337,21 @@ export function RobotViewer({ model, selectedJoint, onJointClick }: Props) {
   return (
     <div className="w-full h-full relative">
       {/* Legend overlay */}
-      <div className="absolute top-3 left-3 z-10 flex gap-3 text-[10px] text-zinc-500 glass px-3 py-1.5 rounded-lg border border-zinc-800/40">
-        <span className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500" /> Healthy
+      <div className="absolute top-3 left-3 z-10 flex gap-4 text-[12px] text-zinc-400 glass px-4 py-2 rounded-lg border border-zinc-800/40">
+        <span className="flex items-center gap-2 font-medium">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Healthy
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-amber-500" /> Moderate
+        <span className="flex items-center gap-2 font-medium">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Moderate
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> Severe
+        <span className="flex items-center gap-2 font-medium">
+          <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" /> Severe
         </span>
       </div>
 
       {/* Hint */}
-      <div className="absolute bottom-3 left-3 z-10 text-[9px] text-zinc-700 font-medium tracking-wide">
-        Click joint for details &middot; Drag to orbit &middot; Right-drag to pan
+      <div className="absolute bottom-3 left-3 z-10 text-[11.5px] text-zinc-500 font-medium tracking-wide">
+        Select joint to inspect &middot; Drag to orbit &middot; Right-click to pan
       </div>
 
       <Canvas

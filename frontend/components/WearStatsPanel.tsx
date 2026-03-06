@@ -33,18 +33,18 @@ export function WearStatsPanel({ joints, selectedJoint, onJointClick }: Props) {
       <div className="flex-shrink-0 flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <TrendingUp className="w-3.5 h-3.5 text-lime-400" />
-          <h2 className="text-[13px] font-semibold text-zinc-200 tracking-tight">
+          <h2 className="text-[14px] font-semibold text-zinc-200 tracking-tight">
             Joint Wear Analysis
           </h2>
         </div>
         <div className="flex items-center gap-2">
           {severeCount > 0 && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/15 font-medium">
-              {severeCount} critical
+            <span className="text-[11.5px] px-2.5 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/15 font-medium">
+              {severeCount} Critical
             </span>
           )}
-          <span className="text-[10px] text-zinc-600 font-mono">
-            avg {(avgWear * 100).toFixed(0)}%
+          <span className="text-[11.5px] text-zinc-500 font-mono">
+            Avg {(avgWear * 100).toFixed(0)}%
           </span>
         </div>
       </div>
@@ -72,7 +72,7 @@ export function WearStatsPanel({ joints, selectedJoint, onJointClick }: Props) {
                     {joint.joint_id.replace("_", " ")}
                   </span>
                 </div>
-                <span className={`text-[11px] font-mono font-medium ${statusColor(joint.wear_status)}`}>
+                <span className={`text-[12px] font-mono font-medium ${statusColor(joint.wear_status)}`}>
                   {(joint.wear_index * 100).toFixed(1)}%
                 </span>
               </div>
@@ -90,15 +90,15 @@ export function WearStatsPanel({ joints, selectedJoint, onJointClick }: Props) {
 
               {/* Expanded details */}
               {isSelected && (
-                <div className="mt-2.5 pt-2.5 border-t border-zinc-800/60 grid grid-cols-2 gap-2 text-[11px]">
+                <div className="mt-2.5 pt-2.5 border-t border-zinc-800/60 grid grid-cols-2 gap-2 text-[12px]">
                   <div className="text-zinc-500">
-                    Anomaly rate{" "}
+                    Anomaly Rate{" "}
                     <span className="text-zinc-200 font-mono font-medium">
                       {(joint.anomaly_rate * 100).toFixed(1)}%
                     </span>
                   </div>
                   <div className="text-zinc-500">
-                    Signal energy{" "}
+                    Signal Energy{" "}
                     <span className="text-zinc-200 font-mono font-medium">
                       {joint.signal_energy.toFixed(0)}
                     </span>
