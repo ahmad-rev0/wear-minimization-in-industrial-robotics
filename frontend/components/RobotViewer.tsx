@@ -1,13 +1,12 @@
 "use client";
 
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import {
   OrbitControls,
   Environment,
   Grid,
   Html,
-  Float,
 } from "@react-three/drei";
 import * as THREE from "three";
 import type { RobotModelData, JointModel } from "@/lib/api";
@@ -47,8 +46,23 @@ function JointSphere({
     }
   });
 
+  const hitRadius = radius * 1.8;
+
   return (
     <group position={[joint.x, joint.y, joint.z]}>
+      {/* Invisible hit zone — much larger than the visible sphere */}
+      <mesh
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        onPointerOver={() => setHovered(true)}
+        onPointerOut={() => setHovered(false)}
+      >
+        <sphereGeometry args={[hitRadius, 16, 16]} />
+        <meshBasicMaterial visible={false} />
+      </mesh>
+
       {/* Outer pulse glow for severe joints */}
       {isSevere && (
         <mesh ref={glowRef}>
@@ -62,16 +76,8 @@ function JointSphere({
         </mesh>
       )}
 
-      {/* Main joint sphere */}
-      <mesh
-        ref={meshRef}
-        onClick={(e) => {
-          e.stopPropagation();
-          onClick();
-        }}
-        onPointerOver={() => setHovered(true)}
-        onPointerOut={() => setHovered(false)}
-      >
+      {/* Visible joint sphere */}
+      <mesh ref={meshRef}>
         <sphereGeometry args={[radius, 32, 32]} />
         <meshStandardMaterial
           color={joint.color}
@@ -95,8 +101,8 @@ function JointSphere({
         </mesh>
       )}
 
-      {/* Tooltip */}
-      {(isSelected || hovered) && (
+      {/* Tooltip — shown on click only to avoid hover flicker */}
+      {isSelected && (
         <Html distanceFactor={4} position={[0, radius + 0.2, 0]} center>
           <div
             className="rounded-xl border backdrop-blur-md shadow-2xl pointer-events-none select-none"
@@ -257,20 +263,11 @@ function RobotArm({
   selectedJoint: string | null;
   onJointClick: (id: string) => void;
 }) {
-  const groupRef = useRef<THREE.Group>(null!);
-
-  useFrame((_, delta) => {
-    if (groupRef.current) {
-      groupRef.current.rotation.y += delta * 0.06;
-    }
-  });
-
   const joints = model.joints;
   const lastJoint = joints[joints.length - 1];
 
   return (
-    <Float speed={0.4} rotationIntensity={0} floatIntensity={0.2}>
-      <group ref={groupRef}>
+    <group>
         {/* Links between consecutive joints */}
         {joints.slice(0, -1).map((j, i) => (
           <Link
@@ -317,8 +314,7 @@ function RobotArm({
             emissiveIntensity={0.35}
           />
         </mesh>
-      </group>
-    </Float>
+    </group>
   );
 }
 
@@ -390,12 +386,15 @@ export function RobotViewer({ model, selectedJoint, onJointClick }: Props) {
 
         <OrbitControls
           enablePan
+          enableDamping
+          dampingFactor={0.25}
           target={[0, 0.9, 0.25]}
           minDistance={1.2}
           maxDistance={8}
           minPolarAngle={0.1}
           maxPolarAngle={Math.PI * 0.85}
           panSpeed={0.6}
+          rotateSpeed={0.8}
         />
         <Environment preset="city" />
       </Canvas>
