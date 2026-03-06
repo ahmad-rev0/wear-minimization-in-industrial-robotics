@@ -358,6 +358,8 @@ export function RobotViewer({ model, selectedJoint, onJointClick }: Props) {
         camera={{ position: [2.2, 1.8, 3.0], fov: 38 }}
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
         onPointerMissed={() => onJointClick(null)}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+        fallback={<div className="w-full h-full flex items-center justify-center text-zinc-500 text-sm">Initializing 3D renderer...</div>}
       >
         <color attach="background" args={["#08080c"]} />
         <fog attach="fog" args={["#08080c", 6, 16]} />

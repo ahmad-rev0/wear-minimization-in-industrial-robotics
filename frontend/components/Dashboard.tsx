@@ -17,6 +17,7 @@ import { SensorTimeline } from "./SensorTimeline";
 import { SimulationChart } from "./SimulationChart";
 import { MaterialPanel } from "./MaterialPanel";
 import { WearStatsPanel } from "./WearStatsPanel";
+import { ExportPanel } from "./ExportPanel";
 import type { AnalysisResult, RobotModelData } from "@/lib/api";
 
 const RobotViewer = dynamic(
@@ -250,8 +251,8 @@ export function Dashboard({
           )}
 
           {activeView === "dashboard" && results && (
-            <div className="gap-3.5 grid grid-cols-12 grid-rows-[1fr_auto] h-full">
-              <section className="col-span-12 lg:col-span-8 card p-0 overflow-hidden min-h-[520px]">
+            <div className="gap-3.5 grid grid-cols-12 pb-4">
+              <section className="col-span-12 lg:col-span-7 card p-0 overflow-hidden h-[400px]">
                 <RobotViewer
                   model={robotModel}
                   selectedJoint={selectedJoint}
@@ -259,7 +260,7 @@ export function Dashboard({
                 />
               </section>
 
-              <section className="col-span-12 lg:col-span-4 flex flex-col gap-3.5 overflow-auto max-h-[calc(100vh-10rem)]">
+              <section className="col-span-12 lg:col-span-5 flex flex-col gap-3.5 overflow-auto h-[400px]">
                 <WearStatsPanel
                   joints={results.joints}
                   selectedJoint={selectedJoint}
@@ -276,6 +277,8 @@ export function Dashboard({
                   selectedJoint={selectedJoint}
                 />
               </section>
+
+              <ExportPanel results={results} />
             </div>
           )}
 

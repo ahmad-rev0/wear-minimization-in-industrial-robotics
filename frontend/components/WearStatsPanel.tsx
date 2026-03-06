@@ -28,7 +28,7 @@ export function WearStatsPanel({ joints, selectedJoint, onJointClick }: Props) {
   const avgWear = joints.reduce((s, j) => s + j.wear_index, 0) / joints.length;
 
   return (
-    <div className="card p-4 animate-fade-in flex flex-col max-h-[60vh]">
+    <div className="card p-4 animate-fade-in flex flex-col flex-1 min-h-0">
       {/* Header */}
       <div className="flex-shrink-0 flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">

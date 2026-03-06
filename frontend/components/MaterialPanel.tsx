@@ -9,7 +9,7 @@ interface Props {
 
 export function MaterialPanel({ recommendations }: Props) {
   return (
-    <div className="card p-4 animate-fade-in flex flex-col max-h-[45vh]">
+    <div className="card p-4 animate-fade-in flex flex-col flex-1 min-h-0">
       <div className="flex-shrink-0 flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Layers className="w-3.5 h-3.5 text-lime-400" />
