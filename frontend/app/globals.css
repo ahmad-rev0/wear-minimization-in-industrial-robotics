@@ -5,13 +5,13 @@
   --color-bg-card: #0e0e14;
   --color-bg-card-hover: #16161e;
   --color-border: #1e1e28;
-  --color-border-accent: #6366f1;
+  --color-border-accent: #84cc16;
   --color-text-primary: #f4f4f5;
   --color-text-secondary: #a1a1aa;
   --color-text-muted: #71717a;
-  --color-accent: #6366f1;
-  --color-accent-secondary: #818cf8;
-  --color-accent-glow: #6366f120;
+  --color-accent: #84cc16;
+  --color-accent-secondary: #a3e635;
+  --color-accent-glow: #84cc1620;
   --color-healthy: #10b981;
   --color-moderate: #f59e0b;
   --color-severe: #ef4444;
@@ -68,7 +68,7 @@ code, .font-mono {
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent 0%, rgba(99,102,241,0.06) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(132,204,22,0.06) 50%, transparent 100%);
   background-size: 200% 100%;
   animation: shimmer 2.5s ease-in-out infinite;
 }
@@ -93,9 +93,9 @@ code, .font-mono {
   pointer-events: none;
   background: linear-gradient(
     135deg,
-    rgba(99, 102, 241, 0.03) 0%,
+    rgba(132, 204, 22, 0.02) 0%,
     transparent 50%,
-    rgba(99, 102, 241, 0.02) 100%
+    rgba(132, 204, 22, 0.015) 100%
   );
 }
 
@@ -106,7 +106,7 @@ code, .font-mono {
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #818cf8, #6366f1, #a78bfa);
+  background: linear-gradient(135deg, #a3e635, #84cc16, #65a30d);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -127,4 +127,42 @@ code, .font-mono {
   background: inherit;
   opacity: 0.3;
   animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Chart zoom slider */
+input[type="range"].chart-zoom {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #27272a, #3f3f46);
+  outline: none;
+  cursor: pointer;
+}
+
+input[type="range"].chart-zoom::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #a3e635;
+  border: 2px solid #0e0e14;
+  box-shadow: 0 0 6px rgba(163, 230, 53, 0.4);
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+
+input[type="range"].chart-zoom::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 10px rgba(163, 230, 53, 0.6);
+}
+
+input[type="range"].chart-zoom::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #a3e635;
+  border: 2px solid #0e0e14;
+  box-shadow: 0 0 6px rgba(163, 230, 53, 0.4);
+  cursor: pointer;
 }

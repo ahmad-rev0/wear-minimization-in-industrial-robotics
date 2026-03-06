@@ -28,11 +28,11 @@ export function WearStatsPanel({ joints, selectedJoint, onJointClick }: Props) {
   const avgWear = joints.reduce((s, j) => s + j.wear_index, 0) / joints.length;
 
   return (
-    <div className="card p-4 animate-fade-in">
+    <div className="card p-4 animate-fade-in flex flex-col max-h-[60vh]">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex-shrink-0 flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <TrendingUp className="w-3.5 h-3.5 text-indigo-400" />
+          <TrendingUp className="w-3.5 h-3.5 text-lime-400" />
           <h2 className="text-[13px] font-semibold text-zinc-200 tracking-tight">
             Joint Wear Analysis
           </h2>
@@ -49,8 +49,8 @@ export function WearStatsPanel({ joints, selectedJoint, onJointClick }: Props) {
         </div>
       </div>
 
-      {/* Joint cards */}
-      <div className="space-y-1.5">
+      {/* Joint cards — scrollable */}
+      <div className="space-y-1.5 overflow-y-auto min-h-0 flex-1 pr-1">
         {sorted.map((joint, i) => {
           const Icon = STATUS_ICON[joint.wear_status as keyof typeof STATUS_ICON] || Shield;
           const isSelected = selectedJoint === joint.joint_id;
@@ -60,7 +60,7 @@ export function WearStatsPanel({ joints, selectedJoint, onJointClick }: Props) {
               onClick={() => onJointClick(joint.joint_id)}
               className={`w-full text-left p-3 rounded-xl border transition-all duration-200 ${
                 isSelected
-                  ? "border-indigo-500/40 bg-indigo-500/5 shadow-sm shadow-indigo-500/5"
+                  ? "border-lime-500/40 bg-lime-500/5 shadow-sm shadow-lime-500/5"
                   : "border-transparent bg-zinc-900/40 hover:bg-zinc-800/40"
               }`}
               style={{ animationDelay: `${i * 60}ms` }}

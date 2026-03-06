@@ -15,15 +15,15 @@ import {
 import type { JointSimulation, MaterialScenario } from "@/lib/api";
 
 const JOINT_COLORS: Record<string, string> = {
-  base: "#6366f1",
-  shoulder: "#8b5cf6",
-  elbow: "#06b6d4",
-  wrist_1: "#f59e0b",
-  wrist_2: "#ec4899",
-  wrist_3: "#ef4444",
+  base: "#84cc16",
+  shoulder: "#a3e635",
+  elbow: "#65a30d",
+  wrist_1: "#bef264",
+  wrist_2: "#4d7c0f",
+  wrist_3: "#d9f99d",
 };
 
-const MATERIAL_COLORS = ["#10b981", "#06b6d4", "#a855f7"];
+const MATERIAL_COLORS = ["#10b981", "#06b6d4", "#a3e635"];
 
 interface Props {
   simulation: JointSimulation[];
@@ -37,8 +37,9 @@ export function SimulationChart({
   selectedJoint,
 }: Props) {
   const [mode, setMode] = useState<"joints" | "materials">("joints");
+  const [yMax, setYMax] = useState(100);
+  const [xZoom, setXZoom] = useState(100);
 
-  // ── Joint projection view ───────────────────────────────
   const jointData = useMemo(() => {
     if (!simulation.length) return [];
     const timeSteps = simulation[0].trajectory.map((p) => p.time);
@@ -51,7 +52,6 @@ export function SimulationChart({
     });
   }, [simulation]);
 
-  // ── Material comparison view (for selected joint) ───────
   const materialData = useMemo(() => {
     const jid = selectedJoint || simulation[0]?.joint_id;
     if (!jid) return { data: [], materials: [] };
@@ -76,40 +76,85 @@ export function SimulationChart({
     ? simulation.filter((s) => s.joint_id === selectedJoint)
     : simulation;
 
+  const yDomain: [number, number] = [0, yMax / 100];
+
+  const currentData = mode === "joints" ? jointData : materialData.data;
+  const times = currentData.map((d) => d.time);
+  const tMin = Math.min(...(times.length ? times : [0]));
+  const tMax = Math.max(...(times.length ? times : [1]));
+  const tRange = tMax - tMin;
+  const tCenter = (tMin + tMax) / 2;
+  const tHalf = (tRange * (xZoom / 100)) / 2;
+  const xDomain: [number, number] = [Math.max(0, tCenter - tHalf), tCenter + tHalf];
+
   return (
     <div className="w-full h-full flex flex-col">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex-shrink-0 flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-2">
-          <TrendingUp className="w-3.5 h-3.5 text-indigo-400" />
+          <TrendingUp className="w-3.5 h-3.5 text-lime-400" />
           <h2 className="text-[13px] font-semibold text-zinc-200 tracking-tight">
             Wear Projection
           </h2>
         </div>
-        <div className="flex gap-0.5 bg-zinc-900/90 rounded-lg p-0.5 border border-zinc-800/60">
-          <button
-            onClick={() => setMode("joints")}
-            className={`px-2.5 py-1 text-[10px] rounded-md transition-all font-medium ${
-              mode === "joints"
-                ? "bg-indigo-500/15 text-indigo-300"
-                : "text-zinc-500 hover:text-zinc-300"
-            }`}
-          >
-            By Joint
-          </button>
-          <button
-            onClick={() => setMode("materials")}
-            className={`px-2.5 py-1 text-[10px] rounded-md transition-all font-medium ${
-              mode === "materials"
-                ? "bg-indigo-500/15 text-indigo-300"
-                : "text-zinc-500 hover:text-zinc-300"
-            }`}
-          >
-            Material Impact
-          </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] text-zinc-500 font-medium">X</span>
+            <input
+              type="range"
+              className="chart-zoom w-16"
+              min={20}
+              max={500}
+              step={10}
+              value={xZoom}
+              onChange={(e) => setXZoom(Number(e.target.value))}
+              title={`X-axis zoom: ${xZoom}%`}
+            />
+            <span className="text-[9px] text-lime-400 font-mono w-8 text-right">
+              {xZoom}%
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] text-zinc-500 font-medium">Y</span>
+            <input
+              type="range"
+              className="chart-zoom w-16"
+              min={10}
+              max={100}
+              step={5}
+              value={yMax}
+              onChange={(e) => setYMax(Number(e.target.value))}
+              title={`Y-axis max: ${yMax}%`}
+            />
+            <span className="text-[9px] text-lime-400 font-mono w-8 text-right">
+              {yMax}%
+            </span>
+          </div>
+          <div className="flex gap-0.5 bg-zinc-900/90 rounded-lg p-0.5 border border-zinc-800/60">
+            <button
+              onClick={() => setMode("joints")}
+              className={`px-2.5 py-1 text-[10px] rounded-md transition-all font-medium ${
+                mode === "joints"
+                  ? "bg-lime-500/15 text-lime-300"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              By Joint
+            </button>
+            <button
+              onClick={() => setMode("materials")}
+              className={`px-2.5 py-1 text-[10px] rounded-md transition-all font-medium ${
+                mode === "materials"
+                  ? "bg-lime-500/15 text-lime-300"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              Material Impact
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="flex-1">
+      <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%">
           {mode === "joints" ? (
             <LineChart
@@ -119,23 +164,21 @@ export function SimulationChart({
               <CartesianGrid strokeDasharray="3 3" stroke="#18181f" />
               <XAxis
                 dataKey="time"
+                type="number"
+                domain={xDomain}
                 tick={{ fontSize: 10, fill: "#52525b" }}
                 tickLine={false}
                 axisLine={{ stroke: "#1e1e28" }}
-                label={{
-                  value: "Time",
-                  position: "insideBottomRight",
-                  offset: -5,
-                  style: { fontSize: 10, fill: "#52525b" },
-                }}
+                allowDataOverflow
               />
               <YAxis
-                domain={[0, 1]}
+                domain={yDomain}
                 tick={{ fontSize: 10, fill: "#52525b" }}
                 tickLine={false}
                 axisLine={{ stroke: "#1e1e28" }}
                 width={35}
                 tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
+                allowDataOverflow
               />
               <Tooltip
                 contentStyle={{
@@ -161,9 +204,7 @@ export function SimulationChart({
                   type="monotone"
                   dataKey={s.joint_id}
                   stroke={JOINT_COLORS[s.joint_id] || "#71717a"}
-                  strokeWidth={
-                    selectedJoint === s.joint_id ? 2.5 : 1.5
-                  }
+                  strokeWidth={selectedJoint === s.joint_id ? 2.5 : 1.5}
                   dot={false}
                   strokeDasharray={
                     selectedJoint && selectedJoint !== s.joint_id
@@ -172,25 +213,28 @@ export function SimulationChart({
                   }
                 />
               ))}
-              {/* Threshold lines */}
-              <Line
-                type="monotone"
-                dataKey={() => 0.3}
-                stroke="#10b98140"
-                strokeWidth={1}
-                strokeDasharray="6 3"
-                dot={false}
-                legendType="none"
-              />
-              <Line
-                type="monotone"
-                dataKey={() => 0.7}
-                stroke="#ef444440"
-                strokeWidth={1}
-                strokeDasharray="6 3"
-                dot={false}
-                legendType="none"
-              />
+              {yMax >= 30 && (
+                <Line
+                  type="monotone"
+                  dataKey={() => 0.3}
+                  stroke="#10b98140"
+                  strokeWidth={1}
+                  strokeDasharray="6 3"
+                  dot={false}
+                  legendType="none"
+                />
+              )}
+              {yMax >= 70 && (
+                <Line
+                  type="monotone"
+                  dataKey={() => 0.7}
+                  stroke="#ef444440"
+                  strokeWidth={1}
+                  strokeDasharray="6 3"
+                  dot={false}
+                  legendType="none"
+                />
+              )}
             </LineChart>
           ) : (
             <LineChart
@@ -200,17 +244,21 @@ export function SimulationChart({
               <CartesianGrid strokeDasharray="3 3" stroke="#18181f" />
               <XAxis
                 dataKey="time"
+                type="number"
+                domain={xDomain}
                 tick={{ fontSize: 10, fill: "#52525b" }}
                 tickLine={false}
                 axisLine={{ stroke: "#1e1e28" }}
+                allowDataOverflow
               />
               <YAxis
-                domain={[0, 1]}
+                domain={yDomain}
                 tick={{ fontSize: 10, fill: "#52525b" }}
                 tickLine={false}
                 axisLine={{ stroke: "#1e1e28" }}
                 width={35}
                 tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
+                allowDataOverflow
               />
               <Tooltip
                 contentStyle={{

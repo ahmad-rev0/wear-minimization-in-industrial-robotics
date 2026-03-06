@@ -91,7 +91,7 @@ export function UploadPanel({ onAnalysisComplete, loading, setLoading }: Props) 
       {/* Hero text */}
       <div className="text-center mb-2">
         <div className="inline-flex items-center gap-2 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 animate-float">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-lime-600 to-lime-400 flex items-center justify-center shadow-lg shadow-lime-500/20 animate-float">
             <Wrench className="w-5 h-5 text-white" />
           </div>
         </div>
@@ -113,7 +113,7 @@ export function UploadPanel({ onAnalysisComplete, loading, setLoading }: Props) 
         onDrop={handleDrop}
         className={`w-full max-w-sm border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 cursor-pointer group ${
           dragActive
-            ? "border-indigo-500 bg-indigo-500/5 shadow-lg shadow-indigo-500/10"
+            ? "border-lime-500 bg-lime-500/5 shadow-lg shadow-lime-500/10"
             : "border-zinc-800 hover:border-zinc-600 hover:bg-zinc-900/50"
         }`}
         onClick={() => {
@@ -130,10 +130,10 @@ export function UploadPanel({ onAnalysisComplete, loading, setLoading }: Props) 
       >
         {loading ? (
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
-            <p className="text-sm text-indigo-300 font-medium">{step}</p>
-            <div className="w-32 h-1 bg-zinc-800 rounded-full overflow-hidden">
-              <div className="h-full bg-indigo-500 rounded-full animate-shimmer" style={{ width: "60%" }} />
+            <Loader2 className="w-8 h-8 text-lime-400 animate-spin" />
+            <p className="text-sm text-lime-300 font-medium">{step}</p>
+              <div className="w-32 h-1 bg-zinc-800 rounded-full overflow-hidden">
+              <div className="h-full bg-lime-500 rounded-full animate-shimmer" style={{ width: "60%" }} />
             </div>
           </div>
         ) : (
@@ -175,7 +175,7 @@ export function UploadPanel({ onAnalysisComplete, loading, setLoading }: Props) 
       <button
         onClick={handleDemoRun}
         disabled={loading}
-        className="group flex items-center gap-2.5 px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-white transition-all shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30"
+        className="group flex items-center gap-2.5 px-6 py-2.5 rounded-xl bg-gradient-to-r from-lime-600 to-lime-400 hover:from-lime-500 hover:to-lime-300 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-zinc-900 transition-all shadow-lg shadow-lime-500/20 hover:shadow-lime-500/30"
       >
         <Zap className="w-4 h-4" />
         Run Demo Analysis
