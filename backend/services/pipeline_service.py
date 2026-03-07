@@ -1,12 +1,18 @@
 """
-Orchestrates the full ML pipeline: feature extraction → anomaly detection
-→ wear modelling → material recommendation → wear simulation.
+Orchestrates the full ML pipeline: ingestion → feature extraction →
+anomaly detection → wear modelling → material recommendation →
+wear simulation.
 
-All pipeline modules (steps 3-7) are now implemented.  The mock fallback
-is retained as a safety net in case of unexpected import errors.
+Both the ingestion layer and the feature engineering engine are now
+fully dataset-agnostic. The pipeline auto-detects sensor modalities,
+computes appropriate features, and adapts the anomaly detection to
+whatever columns were produced.
+
+The mock fallback is retained as a safety net.
 """
 
 import logging
+import re
 from pathlib import Path
 
 import numpy as np
@@ -14,12 +20,120 @@ import pandas as pd
 
 log = logging.getLogger(__name__)
 
+_JOINT_LABELS = ["base", "shoulder", "elbow", "wrist_1", "wrist_2", "wrist_3"]
+
+
+# ── Ingestion ────────────────────────────────────────────────
+
+def _get_canonical(sensor_csv: Path):
+    """
+    Return a CanonicalDataset, synthesising extra joints when needed.
+
+    If the dataset contains only one joint and >100 samples, split
+    into 6 synthetic joints for multi-joint analysis demonstration.
+    """
+    from pipeline.ingestion import infer_schema, validate_dataset, map_dataset
+    from pipeline.ingestion.dataset_mapper import CanonicalDataset, JointData
+    from backend.services.state import get_state
+
+    state = get_state()
+
+    canonical = state.canonical_dataset
+    if canonical is None:
+        df_raw = pd.read_csv(sensor_csv)
+        schema = state.inferred_schema
+        if schema is None:
+            schema = infer_schema(df_raw)
+            state.inferred_schema = schema
+        quality = validate_dataset(df_raw, schema)
+        state.quality_report = quality
+        log.info(
+            "Ingestion: %d rows, %d cols, %d warnings, valid=%s",
+            quality.total_rows, quality.total_columns,
+            len(quality.warnings), quality.is_valid,
+        )
+        canonical = map_dataset(df_raw, schema)
+        state.canonical_dataset = canonical
+
+    log.info(
+        "Canonical dataset: %d joints, modalities=%s",
+        canonical.n_joints, sorted(canonical.all_modalities),
+    )
+
+    # Synthesise multiple joints from single-joint datasets
+    if canonical.n_joints == 1:
+        name, jd = next(iter(canonical.joints.items()))
+        if jd.n_samples > 100:
+            target = 6
+            n = jd.n_samples
+            seg = n // target
+            new_joints: dict[str, JointData] = {}
+            for i in range(target):
+                label = _JOINT_LABELS[i] if i < len(_JOINT_LABELS) else f"joint_{i}"
+                start = i * seg
+                end = n if i == target - 1 else (i + 1) * seg
+                sensors = {k: v[start:end].copy() for k, v in jd.sensors.items()}
+                time_slice = jd.time[start:end].copy()
+                new_joints[label] = JointData(
+                    joint_name=label, time=time_slice, sensors=sensors,
+                )
+            canonical = CanonicalDataset(
+                joints=new_joints,
+                schema=canonical.schema,
+                sampling_rate_hz=canonical.sampling_rate_hz,
+                metadata=canonical.metadata,
+            )
+            state.canonical_dataset = canonical
+            log.info("Synthesised %d joints from single-sensor dataset", target)
+
+    return canonical
+
+
+# ── Dynamic column helpers ───────────────────────────────────
+
+def _find_energy_column(features: pd.DataFrame) -> str:
+    """Find the best energy column for signal_energy aggregation."""
+    # Prefer a magnitude energy column
+    for col in features.columns:
+        if "magnitude_energy" in col:
+            return col
+    for col in features.columns:
+        if col.endswith("_energy") and "spectral" not in col and "band" not in col:
+            return col
+    # Absolute fallback
+    if "energy" in features.columns:
+        return "energy"
+    numeric = features.select_dtypes(include=[np.number]).columns.tolist()
+    rms_cols = [c for c in numeric if c.endswith("_rms")]
+    if rms_cols:
+        return rms_cols[0]
+    return numeric[0] if numeric else "timestamp"
+
+
+def _find_magnitude_column(features: pd.DataFrame) -> str:
+    """Find a magnitude column for the sensor timeline chart."""
+    for col in features.columns:
+        if "magnitude_mean" in col:
+            return col
+    for col in features.columns:
+        if "magnitude" in col and col not in {"joint_id", "timestamp"}:
+            return col
+    for col in features.columns:
+        if col.endswith("_rms"):
+            return col
+    numeric = features.select_dtypes(include=[np.number]).columns.tolist()
+    non_meta = [c for c in numeric if c not in {"timestamp", "anomaly", "anomaly_score"}]
+    return non_meta[0] if non_meta else "timestamp"
+
 
 # ── Real pipeline ────────────────────────────────────────────
 
 def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
-    """Run the full pipeline with all real modules."""
-    from pipeline.feature_engineering import load_and_normalise, extract_features
+    """Run the full pipeline with the new dataset-agnostic engine."""
+    from pipeline.feature_engineering import (
+        extract_features_from_canonical,
+        apply_feature_selection,
+    )
     from pipeline.anomaly_detection import detect_anomalies, anomaly_rate_per_joint
     from pipeline.wear_model import compute_wear_index
     from pipeline.material_recommender import load_materials, rank_materials
@@ -27,22 +141,43 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
         simulate_future_wear,
         compare_material_scenarios,
     )
+    from backend.services.state import get_state
 
-    log.info("Loading and normalising sensor data from %s", sensor_csv)
-    df = load_and_normalise(str(sensor_csv))
+    log.info("Ingesting dataset via schema-adaptive layer: %s", sensor_csv)
+    canonical = _get_canonical(sensor_csv)
 
-    log.info("Extracting features (%d rows, %d joints)", len(df), df["joint_id"].nunique())
-    features = extract_features(df)
+    log.info(
+        "Extracting features (%d joints, %s modalities)",
+        canonical.n_joints, sorted(canonical.all_modalities),
+    )
+    features = extract_features_from_canonical(canonical)
 
-    log.info("Running anomaly detection")
+    # Cache full feature matrix for /available_features endpoint
+    state = get_state()
+    state.cached_features = features
+
+    # Apply feature selection if configured
+    fs_config = state.feature_selection_config
+    if fs_config is not None:
+        pre_cols = len(features.columns) - 2
+        features = apply_feature_selection(features, fs_config)
+        post_cols = len(features.columns) - 2
+        log.info(
+            "Feature selection applied: %d -> %d features",
+            pre_cols, post_cols,
+        )
+
+    log.info("Running anomaly detection on %d feature columns", len(features.columns) - 2)
     features = detect_anomalies(features)
     anom_stats = anomaly_rate_per_joint(features)
 
+    energy_col = _find_energy_column(features)
+    log.info("Using '%s' as signal energy metric", energy_col)
     energy_stats = (
-        features.groupby("joint_id")["energy"]
+        features.groupby("joint_id")[energy_col]
         .mean()
         .reset_index()
-        .rename(columns={"energy": "signal_energy"})
+        .rename(columns={energy_col: "signal_energy"})
     )
 
     log.info("Computing wear index")
@@ -125,9 +260,10 @@ def _mock_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
 def _build_timeline(features: pd.DataFrame) -> dict:
     """Extract time-series data for the sensor chart."""
     sample = features.head(1000)
+    mag_col = _find_magnitude_column(features)
     return {
         "timestamps": sample["timestamp"].tolist(),
-        "magnitude": sample["mag"].round(4).tolist(),
+        "magnitude": sample[mag_col].round(4).tolist(),
         "anomaly": sample.get("anomaly", pd.Series(dtype=int)).tolist(),
     }
 

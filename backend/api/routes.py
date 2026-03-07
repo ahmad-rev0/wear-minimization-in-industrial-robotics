@@ -2,10 +2,14 @@
 API route definitions for the ROBOFIX backend.
 
 Endpoints:
-    POST /upload_dataset   — upload a robot sensor CSV
-    POST /run_analysis     — trigger the full ML pipeline
-    GET  /results          — retrieve latest analysis results
-    GET  /robot_model      — get 3D robot model joint data
+    POST /upload_dataset     — upload a robot sensor CSV (auto-infers schema)
+    POST /configure_schema   — manually override inferred column mappings
+    GET  /dataset_info       — retrieve inferred schema + quality report
+    GET  /available_features — list all features that can be generated
+    POST /training_config    — select which features to use for ML training
+    POST /run_analysis       — trigger the full ML pipeline
+    GET  /results            — retrieve latest analysis results
+    GET  /robot_model        — get 3D robot model joint data
 """
 
 import logging
@@ -17,6 +21,16 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Query
 
 from backend.models.schemas import (
     UploadResponse,
+    InferredSchema,
+    SensorGroupSchema,
+    DataQualityReportSchema,
+    ColumnStatsSchema,
+    SchemaOverrideRequest,
+    DatasetInfoResponse,
+    FeatureMetadata,
+    AvailableFeaturesResponse,
+    TrainingConfigRequest,
+    TrainingConfigResponse,
     AnalysisResult,
     RobotModelData,
     StatusResponse,
@@ -29,11 +43,66 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# ── Helpers: dataclass → Pydantic conversion ─────────────────
+
+def _schema_to_pydantic(schema) -> InferredSchema:
+    """Convert a DatasetSchema dataclass to a Pydantic InferredSchema."""
+    sensor_groups = {}
+    for key, sg in schema.sensor_groups.items():
+        sensor_groups[key] = SensorGroupSchema(
+            modality=sg.modality,
+            columns=sg.columns,
+            axes=sg.axes,
+        )
+    return InferredSchema(
+        timestamp_column=schema.timestamp_column,
+        joint_column=schema.joint_column,
+        sensor_groups=sensor_groups,
+        unmapped_columns=schema.unmapped_columns,
+        inferred=schema.inferred,
+        confidence=round(schema.confidence, 3),
+    )
+
+
+def _quality_to_pydantic(report) -> DataQualityReportSchema:
+    """Convert a DataQualityReport dataclass to a Pydantic schema."""
+    column_stats = [
+        ColumnStatsSchema(
+            column=cs.column,
+            dtype=cs.dtype,
+            missing_count=cs.missing_count,
+            missing_pct=cs.missing_pct,
+            unique_count=cs.unique_count,
+            min_val=cs.min_val,
+            max_val=cs.max_val,
+            mean_val=cs.mean_val,
+            std_val=cs.std_val,
+            outlier_count=cs.outlier_count,
+        )
+        for cs in report.column_stats
+    ]
+    return DataQualityReportSchema(
+        total_rows=report.total_rows,
+        total_columns=report.total_columns,
+        duplicate_rows=report.duplicate_rows,
+        fully_null_columns=report.fully_null_columns,
+        column_stats=column_stats,
+        sampling_rate_hz=report.sampling_rate_hz,
+        sampling_rate_std=report.sampling_rate_std,
+        timestamp_gaps=report.timestamp_gaps,
+        timestamp_non_monotonic=report.timestamp_non_monotonic,
+        joint_names=report.joint_names,
+        joint_count=report.joint_count,
+        warnings=report.warnings,
+        is_valid=report.is_valid,
+    )
+
+
 # ── POST /upload_dataset ─────────────────────────────────────
 
 @router.post("/upload_dataset", response_model=UploadResponse)
 async def upload_dataset(file: UploadFile = File(...)):
-    """Accept a sensor CSV and store it for analysis."""
+    """Accept a sensor CSV, auto-infer its schema, and validate quality."""
     if not file.filename or not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only .csv files are accepted")
 
@@ -43,23 +112,243 @@ async def upload_dataset(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, f)
 
     try:
-        df = pd.read_csv(dest, nrows=5)
+        df = pd.read_csv(dest)
     except Exception as exc:
         dest.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail=f"Could not parse CSV: {exc}")
-
-    row_count = sum(1 for _ in open(dest, encoding="utf-8")) - 1  # minus header
 
     state = get_state()
     state.sensor_csv = dest
     state.status = "idle"
     state.results = None
+    state.schema_overrides = None
+    state.canonical_dataset = None
+
+    # Run schema inference + validation
+    schema_pydantic = None
+    quality_pydantic = None
+    try:
+        from pipeline.ingestion.schema_inference import infer_schema
+        from pipeline.ingestion.dataset_validator import validate_dataset
+        from pipeline.ingestion.dataset_mapper import map_dataset
+
+        inferred = infer_schema(df)
+        state.inferred_schema = inferred
+
+        quality = validate_dataset(df, inferred)
+        state.quality_report = quality
+
+        canonical = map_dataset(df, inferred)
+        state.canonical_dataset = canonical
+
+        schema_pydantic = _schema_to_pydantic(inferred)
+        quality_pydantic = _quality_to_pydantic(quality)
+
+        log.info(
+            "Schema inferred: %d modalities, %d joints, confidence %.1f%%",
+            inferred.n_modalities,
+            quality.joint_count,
+            inferred.confidence * 100,
+        )
+    except Exception as exc:
+        log.warning("Schema inference failed (non-fatal): %s", exc)
 
     return UploadResponse(
         filename=file.filename,
-        rows=row_count,
+        rows=len(df),
         columns=list(df.columns),
-        message="Dataset uploaded successfully. Call POST /api/run_analysis to process.",
+        message="Dataset uploaded and schema inferred. Call POST /api/run_analysis to process.",
+        schema_info=schema_pydantic,
+        quality_report=quality_pydantic,
+    )
+
+
+# ── POST /configure_schema ────────────────────────────────────
+
+@router.post("/configure_schema", response_model=InferredSchema)
+async def configure_schema(body: SchemaOverrideRequest):
+    """Override the auto-inferred column mapping for the current dataset."""
+    state = get_state()
+
+    if state.inferred_schema is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No dataset uploaded yet. Upload a CSV first.",
+        )
+
+    from pipeline.ingestion.schema_inference import apply_user_overrides
+    from pipeline.ingestion.dataset_validator import validate_dataset
+    from pipeline.ingestion.dataset_mapper import map_dataset
+
+    overrides = body.model_dump(exclude_none=True)
+    state.schema_overrides = overrides
+
+    updated_schema = apply_user_overrides(state.inferred_schema, overrides)
+    state.inferred_schema = updated_schema
+
+    # Re-validate and re-map with the updated schema
+    if state.sensor_csv and state.sensor_csv.exists():
+        df = pd.read_csv(state.sensor_csv)
+        state.quality_report = validate_dataset(df, updated_schema)
+        state.canonical_dataset = map_dataset(df, updated_schema)
+
+    log.info("Schema overrides applied: %s", overrides)
+    return _schema_to_pydantic(updated_schema)
+
+
+# ── GET /dataset_info ────────────────────────────────────────
+
+@router.get("/dataset_info", response_model=DatasetInfoResponse)
+async def get_dataset_info():
+    """Return the inferred schema and data quality report for the current dataset."""
+    state = get_state()
+
+    if state.inferred_schema is None and state.quality_report is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No dataset has been uploaded or analysed yet.",
+        )
+
+    return DatasetInfoResponse(
+        filename=state.sensor_csv.name if state.sensor_csv else None,
+        schema_info=_schema_to_pydantic(state.inferred_schema) if state.inferred_schema else None,
+        quality_report=_quality_to_pydantic(state.quality_report) if state.quality_report else None,
+    )
+
+
+# ── Feature category classifier ──────────────────────────────
+
+_CATEGORY_KEYWORDS = {
+    "statistical": {"_mean", "_std", "_variance", "_skewness", "_kurtosis", "_rms", "_peak_to_peak", "_jerk", "_energy"},
+    "spectral": {"_spectral_energy", "_dominant_frequency", "_spectral_entropy", "_spectral_centroid", "_band_energy", "_harmonic_ratio"},
+    "vibration": {"_crest_factor", "_impulse_factor", "_clearance_factor", "_shape_factor"},
+    "thermal": {"_thermal_drift", "_thermal_rate", "_thermal_acceleration"},
+}
+
+
+def _classify_feature(name: str) -> str:
+    for category, suffixes in _CATEGORY_KEYWORDS.items():
+        if any(name.endswith(s) for s in suffixes):
+            return category
+    return "other"
+
+
+# ── GET /available_features ──────────────────────────────────
+
+@router.get("/available_features", response_model=AvailableFeaturesResponse)
+async def get_available_features():
+    """
+    List all features that can be generated for the current dataset.
+
+    If features have already been computed (cached from a prior analysis),
+    returns full statistics. Otherwise, computes on a small sample.
+    """
+    state = get_state()
+
+    if state.canonical_dataset is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No dataset uploaded yet. Upload a CSV first.",
+        )
+
+    from pipeline.feature_engineering import (
+        extract_features_from_canonical,
+        discover_features,
+    )
+    from pipeline.ingestion.dataset_mapper import CanonicalDataset, JointData
+
+    # Use cached features if available; otherwise compute on a sample
+    if state.cached_features is not None and len(state.cached_features) > 0:
+        feature_meta = discover_features(state.cached_features)
+    else:
+        canonical = state.canonical_dataset
+        first_name, first_jd = next(iter(canonical.joints.items()))
+        cap = min(500, first_jd.n_samples)
+        sample_joints = {
+            first_name: JointData(
+                joint_name=first_name,
+                time=first_jd.time[:cap],
+                sensors={k: v[:cap] for k, v in first_jd.sensors.items()},
+            )
+        }
+        sample_ds = CanonicalDataset(
+            joints=sample_joints, schema=canonical.schema,
+        )
+        sample_features = extract_features_from_canonical(sample_ds, window_size=50)
+        feature_meta = discover_features(sample_features)
+
+    features = []
+    categories: dict[str, int] = {}
+    for fm in feature_meta:
+        cat = _classify_feature(fm["name"])
+        categories[cat] = categories.get(cat, 0) + 1
+        features.append(FeatureMetadata(
+            name=fm["name"],
+            dtype=fm["dtype"],
+            mean=fm.get("mean"),
+            std=fm.get("std"),
+            min=fm.get("min"),
+            max=fm.get("max"),
+            n_unique=fm.get("n_unique", 0),
+            pct_zero=fm.get("pct_zero"),
+            category=cat,
+        ))
+
+    return AvailableFeaturesResponse(
+        total_features=len(features),
+        features=features,
+        categories=categories,
+    )
+
+
+# ── POST /training_config ───────────────────────────────────
+
+@router.post("/training_config", response_model=TrainingConfigResponse)
+async def set_training_config(body: TrainingConfigRequest):
+    """
+    Configure which features are used for ML training.
+
+    - `selected_features`: whitelist (only these are used). Null = use all.
+    - `exclude_features`: blacklist (removed from selection).
+    - `min_variance_threshold`: drop features with variance below this value.
+
+    The config is applied during the next `POST /run_analysis` call.
+    """
+    state = get_state()
+
+    from pipeline.feature_engineering.feature_selector import FeatureSelectionConfig
+
+    config = FeatureSelectionConfig(
+        selected_features=body.selected_features,
+        exclude_features=body.exclude_features or [],
+        min_variance_threshold=body.min_variance_threshold,
+    )
+    state.feature_selection_config = config
+
+    # Determine how many features are active
+    total_available = 0
+    active = 0
+    if state.canonical_dataset is not None:
+        from pipeline.feature_engineering import get_available_feature_names
+        all_names = get_available_feature_names(state.canonical_dataset)
+        total_available = len(all_names)
+
+        if config.selected_features:
+            active = len(set(config.selected_features) & set(all_names))
+        else:
+            active = total_available - len(set(config.exclude_features) & set(all_names))
+
+    log.info(
+        "Training config updated: %d/%d features active, variance_threshold=%.4f",
+        active, total_available, config.min_variance_threshold,
+    )
+
+    return TrainingConfigResponse(
+        active_features=active,
+        total_available=total_available,
+        selected_features=config.selected_features,
+        excluded_features=config.exclude_features,
+        min_variance_threshold=config.min_variance_threshold,
     )
 
 

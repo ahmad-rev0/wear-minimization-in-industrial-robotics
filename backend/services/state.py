@@ -1,14 +1,15 @@
 """
 In-memory application state shared across requests.
 
-Stores the path to the last uploaded dataset and the latest
-analysis results.  Sufficient for a single-user prototype;
-swap for Redis / DB in production.
+Stores the path to the last uploaded dataset, the latest
+analysis results, and the inferred schema / quality report.
+Sufficient for a single-user prototype; swap for Redis / DB
+in production.
 """
 
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Any
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 UPLOAD_DIR = DATA_DIR / "uploads"
@@ -23,6 +24,14 @@ class AppState:
     status: str = "idle"  # idle | running | done | error
     error: Optional[str] = None
     results: Optional[dict] = None
+    # Schema inference + data quality (set during upload)
+    inferred_schema: Optional[Any] = None   # DatasetSchema dataclass
+    quality_report: Optional[Any] = None    # DataQualityReport dataclass
+    schema_overrides: Optional[dict] = None # user-provided overrides
+    canonical_dataset: Optional[Any] = None # CanonicalDataset dataclass
+    # Feature selection (set via /training_config)
+    feature_selection_config: Optional[Any] = None  # FeatureSelectionConfig
+    cached_features: Optional[Any] = None           # full feature DataFrame
 
 
 _state = AppState()
