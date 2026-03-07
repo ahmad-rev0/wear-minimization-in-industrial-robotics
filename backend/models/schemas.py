@@ -118,6 +118,31 @@ class TrainingConfigResponse(BaseModel):
     min_variance_threshold: float = 0.0
 
 
+# ── Joint parameters (physics model) ─────────────────────────
+
+class JointParametersSchema(BaseModel):
+    """Physical parameters for a single robot joint."""
+    joint_id: str
+    load_force: Optional[float] = None          # [N]
+    joint_radius: Optional[float] = None        # [m]
+    material: Optional[str] = None
+    lubrication_coefficient: Optional[float] = None  # 0-1
+    contact_area: Optional[float] = None        # [m²]
+    hardness: Optional[float] = None            # [HV]
+    sliding_velocity: Optional[float] = None    # [m/s]
+
+
+class JointParametersRequest(BaseModel):
+    """User-provided joint mechanical parameters."""
+    joints: list[JointParametersSchema]
+
+
+class JointParametersResponse(BaseModel):
+    """Current joint parameters (merged defaults + overrides)."""
+    joints: list[JointParametersSchema]
+    source: str = "default"  # "default" | "user_override"
+
+
 # ── Upload ───────────────────────────────────────────────────
 
 class UploadResponse(BaseModel):

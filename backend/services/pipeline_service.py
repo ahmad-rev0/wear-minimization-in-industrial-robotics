@@ -180,8 +180,21 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
         .rename(columns={energy_col: "signal_energy"})
     )
 
-    log.info("Computing wear index")
-    wear = compute_wear_index(anom_stats, energy_stats)
+    # Resolve joint parameters (user-provided or defaults)
+    from pipeline.physics.joint_parameters import default_joint_params
+    jp = state.joint_params
+    if jp is None:
+        jp = default_joint_params(canonical.joint_names)
+
+    log.info("Computing wear index (Archard's law, %d joints with physics params)", len(jp))
+    wear = compute_wear_index(
+        anom_stats,
+        energy_stats,
+        features=features,
+        joint_params=jp,
+        materials_df=load_materials(str(materials_csv)),
+        sampling_rate_hz=canonical.sampling_rate_hz,
+    )
 
     log.info("Ranking materials")
     materials = load_materials(str(materials_csv))

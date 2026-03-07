@@ -31,6 +31,9 @@ from backend.models.schemas import (
     AvailableFeaturesResponse,
     TrainingConfigRequest,
     TrainingConfigResponse,
+    JointParametersSchema,
+    JointParametersRequest,
+    JointParametersResponse,
     AnalysisResult,
     RobotModelData,
     StatusResponse,
@@ -350,6 +353,72 @@ async def set_training_config(body: TrainingConfigRequest):
         excluded_features=config.exclude_features,
         min_variance_threshold=config.min_variance_threshold,
     )
+
+
+# ── POST /joint_parameters ───────────────────────────────────
+
+@router.post("/joint_parameters", response_model=JointParametersResponse)
+async def set_joint_parameters(body: JointParametersRequest):
+    """
+    Provide physical joint parameters for the physics-based wear model.
+
+    Each joint entry can specify: load_force, joint_radius, material,
+    lubrication_coefficient, contact_area, hardness, sliding_velocity.
+    Omitted fields keep their defaults.
+    """
+    state = get_state()
+
+    from pipeline.physics.joint_parameters import (
+        default_joint_params,
+        merge_user_params,
+    )
+
+    # Determine joint names from the canonical dataset or user input
+    joint_names = [j.joint_id for j in body.joints]
+    if state.canonical_dataset is not None:
+        joint_names = list(set(joint_names) | set(state.canonical_dataset.joint_names))
+
+    defaults = default_joint_params(joint_names)
+    user_dicts = [j.model_dump(exclude_none=True) for j in body.joints]
+    merged = merge_user_params(defaults, user_dicts)
+    state.joint_params = merged
+
+    response_joints = [
+        JointParametersSchema(**jp.to_dict()) for jp in merged.values()
+    ]
+
+    log.info("Joint parameters updated for %d joints", len(merged))
+    return JointParametersResponse(
+        joints=response_joints,
+        source="user_override",
+    )
+
+
+# ── GET /joint_parameters ────────────────────────────────────
+
+@router.get("/joint_parameters", response_model=JointParametersResponse)
+async def get_joint_parameters():
+    """Return the current joint parameters (defaults or user-overridden)."""
+    state = get_state()
+
+    from pipeline.physics.joint_parameters import default_joint_params
+
+    if state.joint_params is not None:
+        params = state.joint_params
+        source = "user_override"
+    elif state.canonical_dataset is not None:
+        params = default_joint_params(state.canonical_dataset.joint_names)
+        source = "default"
+    else:
+        raise HTTPException(
+            status_code=404,
+            detail="No dataset uploaded yet. Upload a CSV first.",
+        )
+
+    response_joints = [
+        JointParametersSchema(**jp.to_dict()) for jp in params.values()
+    ]
+    return JointParametersResponse(joints=response_joints, source=source)
 
 
 # ── POST /run_analysis ───────────────────────────────────────
