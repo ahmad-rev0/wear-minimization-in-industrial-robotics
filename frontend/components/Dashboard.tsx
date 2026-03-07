@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import {
   Bot,
@@ -13,6 +13,10 @@ import {
   Sparkles,
   Microscope,
   Crosshair,
+  ChevronDown,
+  Zap,
+  Eye,
+  Shield,
 } from "lucide-react";
 import { UploadPanel } from "./UploadPanel";
 import { SensorTimeline } from "./SensorTimeline";
@@ -23,9 +27,8 @@ import { ExportPanel } from "./ExportPanel";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
 import { ConfigPanel } from "./ConfigPanel";
 import { JointEditor } from "./JointEditor";
-import { useAnalysis } from "../hooks/useAnalysis";
-import type { AnalysisResult, RobotModelData } from "@/lib/api";
-import { getRobotImageUrl, getJointLayout } from "@/lib/api";
+import type { AnalysisResult, RobotModelData, DiagnosticsResult } from "@/lib/api";
+import { getRobotImageUrl, getJointLayout, getJointOrder, getRobotModel, saveJointOrder } from "@/lib/api";
 import type { JointPosition2D } from "@/lib/api";
 
 const RobotViewer = dynamic(
@@ -116,19 +119,25 @@ const VIEW_HEADINGS: Record<View, { title: string; subtitle: string }> = {
   },
 };
 
-export function Dashboard() {
-  const {
-    results,
-    robotModel,
-    diagnostics,
-    loading,
-    currentStep,
-    refreshDiagnostics,
-    refreshModel,
-    checkAndRunAnalysis,
-    loadFromUpload,
-  } = useAnalysis();
+interface Props {
+  results: AnalysisResult | null;
+  robotModel: RobotModelData | null;
+  diagnostics: DiagnosticsResult | null;
+  onAnalysisComplete: (r: AnalysisResult, m: RobotModelData) => void;
+  onDiagnosticsUpdate?: (d: DiagnosticsResult) => void;
+  loading: boolean;
+  setLoading: (v: boolean) => void;
+}
 
+export function Dashboard({
+  results,
+  robotModel,
+  diagnostics,
+  onAnalysisComplete,
+  onDiagnosticsUpdate,
+  loading,
+  setLoading,
+}: Props) {
   const [activeView, setActiveView] = useState<View>("dashboard");
   const [selectedJoint, setSelectedJoint] = useState<string | null>(null);
   const [bottomTab, setBottomTab] = useState<"sensor" | "simulation">(
@@ -137,13 +146,7 @@ export function Dashboard() {
   const [hoveredNav, setHoveredNav] = useState<View | null>(null);
   const [robotImageUrl, setRobotImageUrl] = useState<string | null>(null);
   const [jointLayout, setJointLayout] = useState<JointPosition2D[] | null>(null);
-
-  // Check if analysis needs to be run when dashboard loads
-  useEffect(() => {
-    if (activeView === "dashboard" && !results && !loading) {
-      checkAndRunAnalysis();
-    }
-  }, [activeView, results, loading, checkAndRunAnalysis]);
+  const [jointOrder, setJointOrder] = useState<string[] | null>(null);
 
   const handleJointClick = useCallback((jointId: string | null) => {
     setSelectedJoint((prev) =>
@@ -156,25 +159,45 @@ export function Dashboard() {
     if (id === "joint_editor") {
       getRobotImageUrl().then(setRobotImageUrl).catch(() => {});
       getJointLayout().then(setJointLayout).catch(() => {});
+      getJointOrder().then(setJointOrder).catch(() => {});
     }
   }, []);
 
   const handleLayoutSaved = useCallback(async () => {
     if (!results) return;
-    await refreshModel();
-  }, [results, refreshModel]);
+    try {
+      const model = await getRobotModel();
+      onAnalysisComplete(results, model);
+    } catch { /* ignore */ }
+  }, [results, onAnalysisComplete]);
+
+  const handleJointOrderChange = useCallback(async (order: string[]) => {
+    setJointOrder(order);
+    try {
+      await saveJointOrder(order);
+      if (results) {
+        const model = await getRobotModel();
+        onAnalysisComplete(results, model);
+      }
+    } catch { /* ignore */ }
+  }, [results, onAnalysisComplete]);
 
   const handleAnalysis = useCallback(
     (r: AnalysisResult, m: RobotModelData) => {
-      loadFromUpload(r, m);
+      onAnalysisComplete(r, m);
       setActiveView("dashboard");
     },
-    [loadFromUpload]
+    [onAnalysisComplete]
   );
 
   const needsResults = activeView !== "upload" && activeView !== "dashboard" && activeView !== "joint_editor";
   const showUpload =
     activeView === "upload" || (!results && activeView === "dashboard");
+
+  const uploadRef = useRef<HTMLDivElement>(null);
+  const scrollToUpload = useCallback(() => {
+    uploadRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
 
   const heading = VIEW_HEADINGS[activeView];
 
@@ -264,9 +287,9 @@ export function Dashboard() {
               </span>
             )}
             {loading && (
-              <span className="flex items-center gap-1.5 text-[12px] px-3 py-1 rounded-full bg-lime-500/10 text-lime-400 border border-lime-500/20 font-medium">
-                <Sparkles className="w-3.5 h-3.5 animate-spin" />
-                {currentStep || "Processing..."}
+              <span className="flex items-center gap-1.5 text-[12px] px-3 py-1 rounded-full bg-lime-500/10 text-lime-400 border border-lime-500/20 font-medium animate-pulse">
+                <Sparkles className="w-3.5 h-3.5" />
+                Processing Pipeline...
               </span>
             )}
           </div>
@@ -285,15 +308,59 @@ export function Dashboard() {
         {/* ── View content ────────────────────────── */}
         <main className="flex-1 overflow-auto p-3.5">
           {showUpload && (
-            <div className="flex flex-col gap-3.5 h-full">
-              <div className="flex-1 card p-0 overflow-hidden min-h-0">
-                <UploadPanel
-                  onAnalysisComplete={handleAnalysis}
-                  loading={loading}
-                  setLoading={() => {}} // This is handled by the hook, but UploadPanel expects it
-                />
+            <div className="flex flex-col gap-6">
+              {/* Hero landing section */}
+              <section className="relative card overflow-hidden min-h-[70vh] flex flex-col items-center justify-center text-center px-6 py-16">
+                <div className="absolute inset-0 bg-gradient-to-b from-lime-500/[0.04] via-transparent to-transparent pointer-events-none" />
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full bg-lime-500/[0.06] blur-[100px] pointer-events-none" />
+                <div className="relative z-10 flex flex-col items-center gap-6 max-w-2xl mx-auto animate-fade-in">
+                  <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-lime-500/20 to-lime-600/10 border border-lime-500/20 flex items-center justify-center mb-2">
+                    <Wrench className="w-10 h-10 text-lime-400" />
+                  </div>
+                  <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-zinc-100">
+                    ROBO<span className="text-lime-400">FIX</span>
+                  </h1>
+                  <p className="text-lg text-zinc-400 max-w-lg leading-relaxed">
+                    AI-powered predictive maintenance for industrial robots.
+                    Detect wear before it causes downtime.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 w-full max-w-lg">
+                    <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-zinc-800/40 border border-zinc-800/60">
+                      <Eye className="w-5 h-5 text-lime-400" />
+                      <span className="text-[12px] text-zinc-400 font-medium">3D Visualization</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-zinc-800/40 border border-zinc-800/60">
+                      <Zap className="w-5 h-5 text-lime-400" />
+                      <span className="text-[12px] text-zinc-400 font-medium">Wear Analytics</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-zinc-800/40 border border-zinc-800/60">
+                      <Shield className="w-5 h-5 text-lime-400" />
+                      <span className="text-[12px] text-zinc-400 font-medium">Material Optimization</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={scrollToUpload}
+                    className="mt-8 group flex flex-col items-center gap-1 text-lime-400 hover:text-lime-300 transition-colors"
+                  >
+                    <span className="px-6 py-2.5 rounded-xl bg-lime-500/10 border border-lime-500/20 text-sm font-semibold tracking-wide hover:bg-lime-500/20 transition-all">
+                      Get Started
+                    </span>
+                    <ChevronDown className="w-5 h-5 mt-2 animate-bounce" />
+                  </button>
+                </div>
+              </section>
+
+              {/* Upload area */}
+              <div ref={uploadRef} className="flex flex-col gap-3.5">
+                <div className="card p-0 overflow-auto min-h-[420px]">
+                  <UploadPanel
+                    onAnalysisComplete={handleAnalysis}
+                    loading={loading}
+                    setLoading={setLoading}
+                  />
+                </div>
+                <ConfigPanel featureNames={diagnostics?.feature_names ?? []} />
               </div>
-              <ConfigPanel featureNames={diagnostics?.feature_names ?? []} />
             </div>
           )}
 
@@ -304,6 +371,7 @@ export function Dashboard() {
                   model={robotModel}
                   selectedJoint={selectedJoint}
                   onJointClick={handleJointClick}
+                  onJointOrderChange={handleJointOrderChange}
                 />
               </section>
 
@@ -335,6 +403,7 @@ export function Dashboard() {
                 model={robotModel}
                 selectedJoint={selectedJoint}
                 onJointClick={handleJointClick}
+                onJointOrderChange={handleJointOrderChange}
               />
             </div>
           )}
@@ -373,7 +442,7 @@ export function Dashboard() {
           )}
 
           {activeView === "diagnostics" && diagnostics && (
-            <DiagnosticsPanel diagnostics={diagnostics} onDiagnosticsUpdate={refreshDiagnostics} />
+            <DiagnosticsPanel diagnostics={diagnostics} onDiagnosticsUpdate={onDiagnosticsUpdate} />
           )}
 
           {activeView === "diagnostics" && !diagnostics && results && (
@@ -383,17 +452,11 @@ export function Dashboard() {
               </div>
               <div>
                 <p className="text-zinc-400 text-[15px] font-medium mb-1">
-                  Diagnostics Not Loaded
+                  Diagnostics Loading
                 </p>
-                <p className="text-zinc-500 text-[13px] mb-3">
-                  ML diagnostics data could not be fetched automatically
+                <p className="text-zinc-500 text-[13px]">
+                  ML diagnostics data is still being prepared
                 </p>
-                <button
-                  onClick={refreshDiagnostics}
-                  className="px-4 py-2 rounded-lg text-[12px] font-medium bg-lime-500/15 text-lime-300 border border-lime-500/20 hover:bg-lime-500/25 transition-all"
-                >
-                  Retry Loading Diagnostics
-                </button>
               </div>
             </div>
           )}
@@ -403,8 +466,10 @@ export function Dashboard() {
               <JointEditor
                 imageUrl={robotImageUrl}
                 initialLayout={jointLayout}
-                jointIds={results?.joints?.map((j) => j.joint_id) ?? null}
+                jointCount={results?.joints?.length ?? 6}
+                jointIds={results?.joints?.map((j: { joint_id: string }) => j.joint_id) ?? null}
                 onLayoutSaved={handleLayoutSaved}
+                onOrderChange={handleJointOrderChange}
               />
             </div>
           )}

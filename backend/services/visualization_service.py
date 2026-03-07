@@ -47,7 +47,7 @@ def _wear_to_hex(wear_index: float) -> str:
 
 def layout_2d_to_3d(
     layout: list[dict],
-    height_scale: float = 3.0,
+    height_scale: float = 3.5,
     depth_scale: float = 3.0,
 ) -> dict[str, tuple[float, float, float]]:
     """
@@ -57,13 +57,8 @@ def layout_2d_to_3d(
     Output: dict mapping joint_id -> (X, Y, Z) for the 3D viewer.
 
     Mapping: ny -> Y (height, 0..height_scale),
-             nx -> Z (depth, centered around 0, range = depth_scale),
+             nx -> Z (depth, centered around 0),
              X  = 0 (side view is flat in X).
-
-    With the default scales (3.0, 3.0), a joint at (0.5, 1.0) maps to
-    (0, 3.0, 0) and one at (1.0, 0.0) maps to (0, 0, 1.5) — comparable
-    to the hardcoded default range of Y=[0..2] Z=[0..0.65] but allowing
-    much larger movement.
     """
     positions: dict[str, tuple[float, float, float]] = {}
     for pt in layout:
@@ -74,13 +69,19 @@ def layout_2d_to_3d(
     return positions
 
 
-def build_robot_model(analysis_results: dict, custom_layout: list[dict] | None = None) -> dict:
+def build_robot_model(
+    analysis_results: dict,
+    custom_layout: list[dict] | None = None,
+    custom_order: list[str] | None = None,
+) -> dict:
     """
     Convert pipeline results into 3D-ready joint data.
 
     Each joint includes: position, wear metrics, colour, and status.
     If *custom_layout* is provided, positions come from the user's 2D
     joint mapping rather than the hardcoded defaults.
+    If *custom_order* is provided, joints are linked in that order
+    instead of the default ``_LINK_ORDER``.
     """
     joint_lookup = {j["joint_id"]: j for j in analysis_results.get("joints", [])}
 
@@ -90,8 +91,12 @@ def build_robot_model(analysis_results: dict, custom_layout: list[dict] | None =
 
     joints_out = []
 
-    ordered_ids = [jid for jid in _LINK_ORDER if jid in joint_lookup]
-    extra_ids = [jid for jid in joint_lookup if jid not in ordered_ids]
+    if custom_order:
+        ordered_ids = [jid for jid in custom_order if jid in joint_lookup]
+        extra_ids = [jid for jid in joint_lookup if jid not in ordered_ids]
+    else:
+        ordered_ids = [jid for jid in _LINK_ORDER if jid in joint_lookup]
+        extra_ids = [jid for jid in joint_lookup if jid not in ordered_ids]
     all_ids = ordered_ids + extra_ids
 
     for i, jid in enumerate(all_ids):

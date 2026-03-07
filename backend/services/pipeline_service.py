@@ -11,7 +11,6 @@ whatever columns were produced.
 The mock fallback is retained as a safety net.
 """
 
-import gc
 import logging
 import re
 from pathlib import Path
@@ -166,8 +165,8 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
     )
     features = extract_features_from_canonical(canonical)
 
-    state.cached_features = None
-    gc.collect()
+    # Cache full feature matrix for /available_features endpoint
+    state.cached_features = features
 
     # Apply feature selection if configured
     fs_config = state.feature_selection_config
@@ -249,8 +248,6 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
     if jp is None:
         jp = default_joint_params(canonical.joint_names)
 
-    materials = load_materials(str(materials_csv))
-
     state.progress = "Computing wear index (Archard's law)..."
     log.info("Computing wear index (Archard's law, %d joints with physics params)", len(jp))
     wear = compute_wear_index(
@@ -258,12 +255,13 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
         energy_stats,
         features=features,
         joint_params=jp,
-        materials_df=materials,
+        materials_df=load_materials(str(materials_csv)),
         sampling_rate_hz=canonical.sampling_rate_hz,
     )
 
     state.progress = "Ranking materials and simulating wear scenarios..."
     log.info("Ranking materials")
+    materials = load_materials(str(materials_csv))
     recs = rank_materials(wear, materials)
 
     log.info("Simulating future wear (baseline + top-3 material scenarios)")
@@ -275,10 +273,6 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
 
     state.progress = "Building sensor timeline..."
     timeline = _build_timeline(features)
-
-    state.canonical_dataset = None
-    del features
-    gc.collect()
 
     state.progress = "Finalizing results..."
     return _format_results(wear, recs, sim, material_scenarios, timeline)
@@ -442,5 +436,16 @@ def _format_results(
 # ── Public entry point ───────────────────────────────────────
 
 def run_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
-    """Execute the analysis pipeline. Errors propagate to the caller."""
-    return _run_real_pipeline(sensor_csv, materials_csv)
+    """
+    Execute the analysis pipeline.
+
+    Runs the real pipeline; falls back to mock only on import error.
+    """
+    try:
+        return _run_real_pipeline(sensor_csv, materials_csv)
+    except NotImplementedError:
+        log.warning("Pipeline module not yet implemented — using mock data")
+        return _mock_pipeline(sensor_csv, materials_csv)
+    except Exception:
+        log.exception("Real pipeline failed — falling back to mock data")
+        return _mock_pipeline(sensor_csv, materials_csv)

@@ -33,5 +33,3 @@ frontend/out/
 # Misc
 *.log
 .cursor/
-.vercel
-.env*.local

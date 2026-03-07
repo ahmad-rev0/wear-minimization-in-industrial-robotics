@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useEffect, useCallback, Suspense } from "react";
+import React, { useRef, useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import {
   OrbitControls,
@@ -362,12 +362,57 @@ interface Props {
   model: RobotModelData | null;
   selectedJoint: string | null;
   onJointClick: (id: string | null) => void;
+  onJointOrderChange?: (order: string[]) => void;
 }
 
-export function RobotViewer({ model, selectedJoint, onJointClick }: Props) {
+export function RobotViewer({ model, selectedJoint, onJointClick, onJointOrderChange }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+
+  const [showOrder, setShowOrder] = useState(false);
+  const [localOrder, setLocalOrder] = useState<string[]>([]);
+  const dragSrcRef = useRef<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (model) setLocalOrder(model.joints.map((j) => j.joint_id));
+  }, [model]);
+
+  const handleOrderDrop = useCallback(
+    (targetIdx: number) => {
+      const srcIdx = dragSrcRef.current;
+      if (srcIdx === null || srcIdx === targetIdx) {
+        setDragOverIdx(null);
+        return;
+      }
+      setLocalOrder((prev) => {
+        const copy = [...prev];
+        const [moved] = copy.splice(srcIdx, 1);
+        copy.splice(targetIdx, 0, moved);
+        onJointOrderChange?.(copy);
+        return copy;
+      });
+      setDragOverIdx(null);
+      dragSrcRef.current = null;
+    },
+    [onJointOrderChange],
+  );
+
+  const { centroid, camPos } = useMemo(() => {
+    if (!model || model.joints.length === 0)
+      return { centroid: [0, 0.9, 0.25] as [number, number, number], camPos: [2.2, 1.8, 3.0] as [number, number, number] };
+    const js = model.joints;
+    const cx = js.reduce((s, j) => s + j.x, 0) / js.length;
+    const cy = js.reduce((s, j) => s + j.y, 0) / js.length;
+    const cz = js.reduce((s, j) => s + j.z, 0) / js.length;
+    const maxY = Math.max(...js.map((j) => j.y));
+    const spread = Math.max(maxY, 2.0);
+    return {
+      centroid: [cx, cy, cz] as [number, number, number],
+      camPos: [cx + spread * 0.9, cy + spread * 0.4, cz + spread * 1.2] as [number, number, number],
+    };
+  }, [model]);
 
   // Defer Canvas mount until the container has non-zero dimensions.
   // This avoids WebGL context failures when layout hasn't settled yet.
@@ -433,6 +478,41 @@ export function RobotViewer({ model, selectedJoint, onJointClick }: Props) {
         Select joint to inspect &middot; Drag to orbit &middot; Right-click to pan
       </div>
 
+      {/* Joint order toggle */}
+      <button
+        onClick={() => setShowOrder((v) => !v)}
+        className="absolute top-3 right-3 z-10 px-2.5 py-1.5 rounded-lg text-[11px] font-medium glass border border-zinc-800/40 text-zinc-400 hover:text-zinc-200 transition-all"
+      >
+        {showOrder ? "Hide Order" : "Reorder"}
+      </button>
+
+      {/* Collapsible joint order overlay */}
+      {showOrder && localOrder.length > 0 && (
+        <div className="absolute top-12 right-3 z-10 w-[130px] rounded-xl border border-zinc-800/60 glass p-2 flex flex-col gap-1 max-h-[280px] overflow-y-auto">
+          <span className="text-[9px] text-zinc-500 font-medium uppercase tracking-wider px-1 mb-0.5">
+            Link Order
+          </span>
+          {localOrder.map((jid, i) => (
+            <div
+              key={jid}
+              draggable
+              onDragStart={() => { dragSrcRef.current = i; }}
+              onDragOver={(e) => { e.preventDefault(); setDragOverIdx(i); }}
+              onDrop={() => handleOrderDrop(i)}
+              onDragEnd={() => setDragOverIdx(null)}
+              className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono cursor-grab active:cursor-grabbing transition-all select-none ${
+                dragOverIdx === i
+                  ? "bg-lime-500/15 border border-lime-500/30"
+                  : "bg-zinc-800/60 border border-transparent hover:bg-zinc-700/60"
+              }`}
+            >
+              <span className="text-zinc-600 text-[9px] w-3">{i + 1}</span>
+              <span className="text-zinc-300 truncate">{jid}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {!ready ? (
         <div className="w-full h-full flex items-center justify-center text-zinc-500 text-sm">
           Initializing 3D renderer...
@@ -440,7 +520,7 @@ export function RobotViewer({ model, selectedJoint, onJointClick }: Props) {
       ) : (
         <ViewerErrorBoundary onRetry={handleRetry} key={retryKey}>
           <Canvas
-            camera={{ position: [2.2, 1.8, 3.0], fov: 38 }}
+            camera={{ position: camPos, fov: 38 }}
             gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
             onPointerMissed={() => onJointClick(null)}
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
@@ -473,9 +553,9 @@ export function RobotViewer({ model, selectedJoint, onJointClick }: Props) {
               enablePan
               enableDamping
               dampingFactor={0.25}
-              target={[0, 0.9, 0.25]}
+              target={centroid}
               minDistance={1.2}
-              maxDistance={8}
+              maxDistance={12}
               minPolarAngle={0.1}
               maxPolarAngle={Math.PI * 0.85}
               panSpeed={0.6}

@@ -2,11 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://wear-minimization-in-industrial-robotics.onrender.com/api/:path*"
-    },
-    {
-      "source": "/uploads/:path*",
-      "destination": "https://wear-minimization-in-industrial-robotics.onrender.com/uploads/:path*"
+      "destination": "https://your-backend-url.example.com/api/:path*"
     }
   ],
   "headers": [

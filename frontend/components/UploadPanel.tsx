@@ -146,7 +146,7 @@ export function UploadPanel({ onAnalysisComplete, loading, setLoading }: Props) 
   );
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center p-8 gap-6 animate-fade-in">
+    <div className="w-full flex flex-col items-center justify-start py-12 px-8 gap-6 animate-fade-in overflow-auto">
       {/* Hero text */}
       <div className="text-center mb-2">
         <div className="inline-flex items-center gap-2 mb-4">
@@ -300,7 +300,7 @@ export function UploadPanel({ onAnalysisComplete, loading, setLoading }: Props) 
           </p>
 
           {/* Robot Image Upload */}
-          <div className="flex items-center gap-3 w-full max-w-sm mt-2">
+          <div className="flex items-center gap-3 w-full max-w-md mt-2">
             <div className="flex-1 h-px bg-zinc-800/60" />
             <span className="text-[10px] text-zinc-700 font-medium uppercase tracking-widest">
               optional
@@ -308,7 +308,7 @@ export function UploadPanel({ onAnalysisComplete, loading, setLoading }: Props) 
             <div className="flex-1 h-px bg-zinc-800/60" />
           </div>
 
-          <div className="w-full max-w-sm">
+          <div className="w-full max-w-md">
             <p className="text-[12px] text-zinc-500 mb-2 text-center">
               Upload a robot side-profile photo for{" "}
               <span className="text-zinc-300 font-medium">joint mapping</span>

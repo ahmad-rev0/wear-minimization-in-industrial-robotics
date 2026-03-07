@@ -128,14 +128,10 @@ async def upload_dataset(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, f)
 
     try:
-        df_preview = pd.read_csv(dest, nrows=2000)
+        df = pd.read_csv(dest)
     except Exception as exc:
         dest.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail=f"Could not parse CSV: {exc}")
-
-    import csv
-    with open(dest, newline="") as fh:
-        total_rows = sum(1 for _ in fh) - 1
 
     state = get_state()
     state.sensor_csv = dest
@@ -143,23 +139,24 @@ async def upload_dataset(file: UploadFile = File(...)):
     state.results = None
     state.schema_overrides = None
     state.canonical_dataset = None
-    state.cached_features = None
-    state.diagnostics = None
-    state.inferred_schema = None
-    state.quality_report = None
     state.model_comparison = {}
 
+    # Run schema inference + validation
     schema_pydantic = None
     quality_pydantic = None
     try:
         from pipeline.ingestion.schema_inference import infer_schema
         from pipeline.ingestion.dataset_validator import validate_dataset
+        from pipeline.ingestion.dataset_mapper import map_dataset
 
-        inferred = infer_schema(df_preview)
+        inferred = infer_schema(df)
         state.inferred_schema = inferred
 
-        quality = validate_dataset(df_preview, inferred)
+        quality = validate_dataset(df, inferred)
         state.quality_report = quality
+
+        canonical = map_dataset(df, inferred)
+        state.canonical_dataset = canonical
 
         schema_pydantic = _schema_to_pydantic(inferred)
         quality_pydantic = _quality_to_pydantic(quality)
@@ -175,8 +172,8 @@ async def upload_dataset(file: UploadFile = File(...)):
 
     return UploadResponse(
         filename=file.filename,
-        rows=total_rows,
-        columns=list(df_preview.columns),
+        rows=len(df),
+        columns=list(df.columns),
         message="Dataset uploaded and schema inferred. Call POST /api/run_analysis to process.",
         schema_info=schema_pydantic,
         quality_report=quality_pydantic,
@@ -580,7 +577,6 @@ async def run_analysis(
     state.error = None
 
     def _run():
-        import gc
         try:
             results = run_pipeline(sensor_csv, state.materials_csv)
             state.results = results
@@ -588,9 +584,6 @@ async def run_analysis(
             log.info("Pipeline completed successfully")
         except MemoryError:
             log.exception("Pipeline ran out of memory")
-            state.canonical_dataset = None
-            state.cached_features = None
-            gc.collect()
             state.status = "error"
             state.error = (
                 "Out of memory. Try reducing the dataset size via the "
@@ -676,7 +669,11 @@ async def get_robot_model():
             detail="Run an analysis first (POST /api/run_analysis).",
         )
 
-    return build_robot_model(state.results, custom_layout=state.custom_joint_layout)
+    return build_robot_model(
+        state.results,
+        custom_layout=state.custom_joint_layout,
+        custom_order=state.custom_joint_order,
+    )
 
 
 # ── GET /pipeline_config ─────────────────────────────────────
@@ -802,6 +799,22 @@ async def delete_joint_layout():
     state = get_state()
     state.custom_joint_layout = None
     return {"deleted": True}
+
+
+@router.post("/joint_order")
+async def save_joint_order(order: list[str]):
+    """Save the custom joint link order for the 3D viewer."""
+    state = get_state()
+    state.custom_joint_order = order
+    log.info("Custom joint order saved: %s", order)
+    return {"saved": len(order)}
+
+
+@router.get("/joint_order")
+async def get_joint_order():
+    """Return custom joint order if set, else null."""
+    state = get_state()
+    return {"order": state.custom_joint_order}
 
 
 # ── GET /robot_image ────────────────────────────────────────
