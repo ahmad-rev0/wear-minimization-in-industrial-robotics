@@ -122,7 +122,7 @@ def compute_unsupervised_metrics(features_df: pd.DataFrame) -> UnsupervisedMetri
         try:
             from sklearn.metrics import silhouette_score, calinski_harabasz_score
 
-            sample_size = min(5000, len(X))
+            sample_size = min(2000, len(X))
             if sample_size < len(X):
                 rng = np.random.default_rng(42)
                 idx = rng.choice(len(X), sample_size, replace=False)

@@ -11,6 +11,7 @@ whatever columns were produced.
 The mock fallback is retained as a safety net.
 """
 
+import gc
 import logging
 import re
 from pathlib import Path
@@ -165,8 +166,8 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
     )
     features = extract_features_from_canonical(canonical)
 
-    # Cache full feature matrix for /available_features endpoint
-    state.cached_features = features
+    state.cached_features = None
+    gc.collect()
 
     # Apply feature selection if configured
     fs_config = state.feature_selection_config
@@ -248,6 +249,8 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
     if jp is None:
         jp = default_joint_params(canonical.joint_names)
 
+    materials = load_materials(str(materials_csv))
+
     state.progress = "Computing wear index (Archard's law)..."
     log.info("Computing wear index (Archard's law, %d joints with physics params)", len(jp))
     wear = compute_wear_index(
@@ -255,13 +258,12 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
         energy_stats,
         features=features,
         joint_params=jp,
-        materials_df=load_materials(str(materials_csv)),
+        materials_df=materials,
         sampling_rate_hz=canonical.sampling_rate_hz,
     )
 
     state.progress = "Ranking materials and simulating wear scenarios..."
     log.info("Ranking materials")
-    materials = load_materials(str(materials_csv))
     recs = rank_materials(wear, materials)
 
     log.info("Simulating future wear (baseline + top-3 material scenarios)")
@@ -273,6 +275,10 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
 
     state.progress = "Building sensor timeline..."
     timeline = _build_timeline(features)
+
+    state.canonical_dataset = None
+    del features
+    gc.collect()
 
     state.progress = "Finalizing results..."
     return _format_results(wear, recs, sim, material_scenarios, timeline)

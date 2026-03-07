@@ -59,7 +59,7 @@ def detect_anomalies(
     if model_config is None:
         model_config = get_default_config()
 
-    df = features_df.copy()
+    df = features_df
     df["anomaly"] = 1
     df["anomaly_score"] = 0.0
 

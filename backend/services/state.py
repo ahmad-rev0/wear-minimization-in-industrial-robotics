@@ -42,7 +42,7 @@ class AppState:
     # Model comparison: model_id → {silhouette, display_name}
     model_comparison: dict = field(default_factory=dict)
     # Pipeline config
-    max_rows: int = 20000                            # auto-downsample limit
+    max_rows: int = 5000                             # auto-downsample limit (kept low for 512 MB Render tier)
     contamination: float = 0.1                       # anomaly fraction for detection
     deselected_features: list = field(default_factory=list)  # features to exclude
     # Joint mapping
