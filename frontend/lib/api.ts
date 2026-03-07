@@ -77,21 +77,11 @@ export async function uploadDataset(file: File): Promise<UploadResponse> {
   const form = new FormData();
   form.append("file", file);
 
-  // Try the Next.js proxy first; fall back to a direct backend call for
-  // large files where the proxy may buffer/timeout.
-  let res: Response;
-  try {
-    res = await fetch(`${API_BASE}/upload_dataset`, {
-      method: "POST",
-      body: form,
-    });
-  } catch {
-    // Proxy failed (timeout / network) — send directly to backend
-    res = await fetch(`${DIRECT_BACKEND}/api/upload_dataset`, {
-      method: "POST",
-      body: form,
-    });
-  }
+  // Always upload directly to the backend to bypass the Next.js rewrite
+  // proxy's 10 MB body-size limit which truncates large CSV files.
+  const base = DIRECT_BACKEND || API_BASE;
+  const url = base === API_BASE ? `${API_BASE}/upload_dataset` : `${base}/api/upload_dataset`;
+  const res = await fetch(url, { method: "POST", body: form });
 
   if (!res.ok) throw new Error(await res.text());
   return res.json();
