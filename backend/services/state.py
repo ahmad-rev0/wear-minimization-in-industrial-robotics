@@ -34,6 +34,8 @@ class AppState:
     cached_features: Optional[Any] = None           # full feature DataFrame
     # Joint parameters (set via /joint_parameters)
     joint_params: Optional[dict] = None             # dict[str, JointParameters]
+    # ML model config (set via /model_config)
+    model_config: Optional[Any] = None              # ModelConfig dataclass
 
 
 _state = AppState()

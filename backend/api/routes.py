@@ -7,6 +7,11 @@ Endpoints:
     GET  /dataset_info       — retrieve inferred schema + quality report
     GET  /available_features — list all features that can be generated
     POST /training_config    — select which features to use for ML training
+    POST /joint_parameters   — set physical joint parameters
+    GET  /joint_parameters   — retrieve current joint parameters
+    GET  /available_models   — list available ML algorithms
+    POST /model_config       — select ML model + hyperparameters
+    GET  /model_config       — retrieve current model config
     POST /run_analysis       — trigger the full ML pipeline
     GET  /results            — retrieve latest analysis results
     GET  /robot_model        — get 3D robot model joint data
@@ -34,6 +39,11 @@ from backend.models.schemas import (
     JointParametersSchema,
     JointParametersRequest,
     JointParametersResponse,
+    HyperparamInfo,
+    ModelInfo,
+    AvailableModelsResponse,
+    ModelConfigRequest,
+    ModelConfigResponse,
     AnalysisResult,
     RobotModelData,
     StatusResponse,
@@ -419,6 +429,108 @@ async def get_joint_parameters():
         JointParametersSchema(**jp.to_dict()) for jp in params.values()
     ]
     return JointParametersResponse(joints=response_joints, source=source)
+
+
+# ── GET /available_models ────────────────────────────────────
+
+@router.get("/available_models", response_model=AvailableModelsResponse)
+async def get_available_models():
+    """List all available anomaly detection algorithms and their hyperparameters."""
+    from pipeline.modeling.model_registry import AVAILABLE_MODELS, get_default_config
+
+    state = get_state()
+    active = state.model_config.model_id if state.model_config else get_default_config().model_id
+
+    models = []
+    for spec in AVAILABLE_MODELS.values():
+        hps = [
+            HyperparamInfo(
+                name=hp.name,
+                dtype=hp.dtype,
+                default=hp.default,
+                min_val=hp.min_val,
+                max_val=hp.max_val,
+                description=hp.description,
+            )
+            for hp in spec.hyperparams
+        ]
+        models.append(ModelInfo(
+            model_id=spec.model_id,
+            display_name=spec.display_name,
+            description=spec.description,
+            hyperparams=hps,
+        ))
+
+    return AvailableModelsResponse(models=models, active_model=active)
+
+
+# ── POST /model_config ──────────────────────────────────────
+
+@router.post("/model_config", response_model=ModelConfigResponse)
+async def set_model_config(body: ModelConfigRequest):
+    """
+    Select which ML algorithm and hyperparameters to use for anomaly detection.
+
+    The config is applied during the next `POST /run_analysis` call.
+    """
+    from pipeline.modeling.model_registry import (
+        ModelConfig,
+        AVAILABLE_MODELS,
+        validate_model_config,
+    )
+
+    # Merge user params with defaults
+    spec = AVAILABLE_MODELS.get(body.model)
+    if spec is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown model: '{body.model}'. Available: {list(AVAILABLE_MODELS.keys())}",
+        )
+
+    merged_params = spec.default_params()
+    if body.params:
+        merged_params.update(body.params)
+
+    config = ModelConfig(
+        model_id=body.model,
+        params=merged_params,
+        random_state=body.random_state,
+    )
+
+    valid, msg = validate_model_config(config)
+    if not valid:
+        raise HTTPException(status_code=400, detail=msg)
+
+    state = get_state()
+    state.model_config = config
+
+    log.info("Model config updated: %s with params %s", config.model_id, config.params)
+
+    return ModelConfigResponse(
+        model_id=config.model_id,
+        display_name=spec.display_name,
+        params=config.params,
+        random_state=config.random_state,
+    )
+
+
+# ── GET /model_config ───────────────────────────────────────
+
+@router.get("/model_config", response_model=ModelConfigResponse)
+async def get_model_config():
+    """Return the currently active model configuration."""
+    from pipeline.modeling.model_registry import AVAILABLE_MODELS, get_default_config
+
+    state = get_state()
+    config = state.model_config or get_default_config()
+    spec = AVAILABLE_MODELS[config.model_id]
+
+    return ModelConfigResponse(
+        model_id=config.model_id,
+        display_name=spec.display_name,
+        params=config.params,
+        random_state=config.random_state,
+    )
 
 
 # ── POST /run_analysis ───────────────────────────────────────

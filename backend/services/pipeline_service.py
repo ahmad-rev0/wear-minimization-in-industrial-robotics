@@ -167,8 +167,14 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
             pre_cols, post_cols,
         )
 
-    log.info("Running anomaly detection on %d feature columns", len(features.columns) - 2)
-    features = detect_anomalies(features)
+    # Use configured model or default
+    model_config = state.model_config
+    log.info(
+        "Running anomaly detection on %d feature columns (model=%s)",
+        len(features.columns) - 2,
+        model_config.model_id if model_config else "isolation_forest",
+    )
+    features = detect_anomalies(features, model_config=model_config)
     anom_stats = anomaly_rate_per_joint(features)
 
     energy_col = _find_energy_column(features)

@@ -143,6 +143,47 @@ class JointParametersResponse(BaseModel):
     source: str = "default"  # "default" | "user_override"
 
 
+# ── Model configuration ─────────────────────────────────────
+
+class HyperparamInfo(BaseModel):
+    """Metadata for a single hyperparameter."""
+    name: str
+    dtype: str
+    default: Optional[float | int | str | bool] = None
+    min_val: Optional[float | int] = None
+    max_val: Optional[float | int] = None
+    description: str = ""
+
+
+class ModelInfo(BaseModel):
+    """Registry entry for one available model."""
+    model_id: str
+    display_name: str
+    description: str
+    hyperparams: list[HyperparamInfo] = []
+
+
+class AvailableModelsResponse(BaseModel):
+    """All available anomaly detection algorithms."""
+    models: list[ModelInfo]
+    active_model: str
+
+
+class ModelConfigRequest(BaseModel):
+    """User-selected model and hyperparameters."""
+    model: str                           # model_id
+    params: Optional[dict] = None        # hyperparameter overrides
+    random_state: int = 42
+
+
+class ModelConfigResponse(BaseModel):
+    """Confirmation of active model configuration."""
+    model_id: str
+    display_name: str
+    params: dict
+    random_state: int
+
+
 # ── Upload ───────────────────────────────────────────────────
 
 class UploadResponse(BaseModel):

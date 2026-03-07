@@ -1,91 +1,79 @@
 """
-Anomaly detection using Isolation Forest on engineered features.
+Anomaly detection — dataset-agnostic, model-agnostic.
 
-Flags sensor readings that deviate from normal joint behaviour.
-The model is fit *per joint* so each joint's normal operating
-envelope is learned independently.
+Supports multiple algorithms via the model registry:
+    - Isolation Forest  (default)
+    - Local Outlier Factor
+    - One-Class SVM
+    - Autoencoder
 
-Feature columns are auto-detected: any numeric column that isn't in
-the reserved set (joint_id, timestamp, anomaly, anomaly_score) is
-treated as a feature. This makes the module fully dataset-agnostic.
+The model is fit *per joint* so each joint's normal operating envelope
+is learned independently. Feature columns are auto-detected from the
+DataFrame (any numeric column not in the reserved set).
 """
 
 import logging
+from typing import Optional
 
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
+
+from pipeline.modeling.model_registry import ModelConfig, get_default_config
+from pipeline.modeling.anomaly_models import create_detector
 
 log = logging.getLogger(__name__)
 
 _RESERVED_COLS = {"joint_id", "timestamp", "anomaly", "anomaly_score"}
 
-# Legacy feature names kept as preferred columns when available
-_LEGACY_FEATURE_COLS = [
-    "mag_mean",
-    "mag_std",
-    "rolling_std",
-    "jerk",
-    "spectral_energy",
-    "dominant_frequency",
-    "entropy",
-    "energy",
-]
-
 
 def _detect_feature_columns(df: pd.DataFrame) -> list[str]:
     """Auto-detect numeric feature columns, excluding reserved metadata."""
-    candidates = []
-    for col in df.columns:
-        if col in _RESERVED_COLS:
-            continue
-        if pd.api.types.is_numeric_dtype(df[col]):
-            candidates.append(col)
-    return candidates
+    return [
+        col for col in df.columns
+        if col not in _RESERVED_COLS and pd.api.types.is_numeric_dtype(df[col])
+    ]
 
 
 def detect_anomalies(
     features_df: pd.DataFrame,
-    contamination: float = 0.05,
-    random_state: int = 42,
-    feature_cols: list[str] | None = None,
+    model_config: Optional[ModelConfig] = None,
+    feature_cols: Optional[list[str]] = None,
 ) -> pd.DataFrame:
     """
-    Run Isolation Forest on the feature matrix, fitted per joint.
+    Run anomaly detection on the feature matrix, fitted per joint.
 
     Adds two columns:
-        anomaly : int   — 1 = normal, -1 = anomaly  (sklearn convention)
-        anomaly_score : float — the raw decision score (lower = more anomalous)
+        anomaly       : int   — 1 = normal, -1 = anomaly
+        anomaly_score : float — continuous score (lower = more anomalous)
 
     Parameters
     ----------
-    features_df : DataFrame from the feature engineering step.
-    contamination : expected fraction of anomalies.
-    random_state : reproducibility seed.
-    feature_cols : explicit list of columns to use. If None, auto-detected.
+    features_df  : DataFrame from the feature engineering step.
+    model_config : which algorithm + hyperparameters to use.
+                   Defaults to IsolationForest with contamination=0.05.
+    feature_cols : explicit list of columns. If None, auto-detected.
 
     Returns the enriched DataFrame (original columns preserved).
     """
+    if model_config is None:
+        model_config = get_default_config()
+
     df = features_df.copy()
     df["anomaly"] = 1
     df["anomaly_score"] = 0.0
 
-    if feature_cols is not None:
-        available = [c for c in feature_cols if c in df.columns]
-    else:
-        # Try legacy columns first; fall back to full auto-detection
-        available = [c for c in _LEGACY_FEATURE_COLS if c in df.columns]
-        if not available:
-            available = _detect_feature_columns(df)
-
+    available = feature_cols if feature_cols else _detect_feature_columns(df)
     if not available:
         raise ValueError(
             "No numeric feature columns found for anomaly detection. "
             "Ensure the feature engineering step produced output."
         )
 
-    log.info("Anomaly detection using %d feature columns", len(available))
+    log.info(
+        "Anomaly detection: model=%s, features=%d, params=%s",
+        model_config.model_id, len(available), model_config.params,
+    )
 
     for joint_id, grp in df.groupby("joint_id"):
         idx = grp.index
@@ -95,17 +83,21 @@ def detect_anomalies(
         X_scaled = scaler.fit_transform(X)
         X_scaled = np.nan_to_num(X_scaled, nan=0.0, posinf=0.0, neginf=0.0)
 
-        clf = IsolationForest(
-            contamination=contamination,
-            random_state=random_state,
-            n_estimators=100,
-            n_jobs=-1,
+        detector = create_detector(
+            model_id=model_config.model_id,
+            params=model_config.params,
+            random_state=model_config.random_state,
         )
-        labels = clf.fit_predict(X_scaled)
-        scores = clf.decision_function(X_scaled)
+        labels, scores = detector.fit_predict(X_scaled)
 
         df.loc[idx, "anomaly"] = labels
         df.loc[idx, "anomaly_score"] = scores
+
+    n_anomalies = int((df["anomaly"] == -1).sum())
+    log.info(
+        "Anomaly detection complete: %d anomalies / %d total (%.1f%%)",
+        n_anomalies, len(df), 100 * n_anomalies / max(len(df), 1),
+    )
 
     return df
 
@@ -115,10 +107,7 @@ def anomaly_rate_per_joint(df: pd.DataFrame) -> pd.DataFrame:
     Aggregate anomaly counts per joint_id.
 
     Returns DataFrame with columns:
-        joint_id      : str
-        total_readings: int
-        anomaly_count : int
-        anomaly_rate  : float  (0-1, fraction of readings flagged anomalous)
+        joint_id, total_readings, anomaly_count, anomaly_rate
     """
     if "anomaly" not in df.columns:
         raise ValueError("DataFrame must contain an 'anomaly' column — run detect_anomalies first")
