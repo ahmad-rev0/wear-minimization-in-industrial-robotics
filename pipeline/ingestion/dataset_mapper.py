@@ -106,14 +106,35 @@ def _epoch_divisor(values: np.ndarray) -> float:
 
 
 def _normalise_time(series: pd.Series) -> np.ndarray:
-    """Convert timestamp column to seconds starting from 0."""
-    arr = series.to_numpy(dtype=np.float64, na_value=np.nan)
-    valid = arr[~np.isnan(arr)]
-    if len(valid) == 0:
-        return np.arange(len(arr), dtype=np.float64)
-    divisor = _epoch_divisor(valid)
-    arr = (arr - valid[0]) / divisor
-    return arr
+    """Convert timestamp column to seconds starting from 0.
+
+    Handles numeric epochs, datetime strings, and pandas Timestamps.
+    Falls back to a sequential index when nothing else works.
+    """
+    # 1. Already numeric — fast path
+    if pd.api.types.is_numeric_dtype(series):
+        arr = series.to_numpy(dtype=np.float64, na_value=np.nan)
+        valid = arr[~np.isnan(arr)]
+        if len(valid) == 0:
+            return np.arange(len(arr), dtype=np.float64)
+        divisor = _epoch_divisor(valid)
+        return (arr - valid[0]) / divisor
+
+    # 2. Try parsing as datetime (handles ISO strings, mixed formats, etc.)
+    try:
+        dt = pd.to_datetime(series, errors="coerce")
+        if dt.notna().any():
+            epoch = dt.astype(np.int64) / 1e9  # nanoseconds → seconds
+            arr = epoch.to_numpy(dtype=np.float64)
+            arr = np.where(np.isfinite(arr), arr, np.nan)
+            valid = arr[~np.isnan(arr)]
+            if len(valid) > 0:
+                return arr - valid[0]
+    except Exception:
+        pass
+
+    # 3. Fallback — sequential index
+    return np.arange(len(series), dtype=np.float64)
 
 
 # ── Core mapper ──────────────────────────────────────────────
@@ -148,13 +169,22 @@ def map_dataset(
     # ── Estimate sampling rate ──
     if schema.timestamp_column and schema.timestamp_column in df.columns:
         ts = df[schema.timestamp_column].dropna()
-        if np.issubdtype(ts.dtype, np.number) and len(ts) > 1:
-            diffs = ts.diff().dropna()
-            median_dt = float(diffs.median())
-            if median_dt > 0:
-                divisor = _epoch_divisor(ts.to_numpy())
-                dt_sec = median_dt / divisor
-                dataset.sampling_rate_hz = round(1.0 / dt_sec, 2)
+        try:
+            if np.issubdtype(ts.dtype, np.number) and len(ts) > 1:
+                diffs = ts.diff().dropna()
+                median_dt = float(diffs.median())
+                if median_dt > 0:
+                    divisor = _epoch_divisor(ts.to_numpy())
+                    dt_sec = median_dt / divisor
+                    dataset.sampling_rate_hz = round(1.0 / dt_sec, 2)
+            elif len(ts) > 1:
+                dt = pd.to_datetime(ts, errors="coerce").dropna()
+                if len(dt) > 1:
+                    median_dt = dt.diff().dropna().median().total_seconds()
+                    if median_dt > 0:
+                        dataset.sampling_rate_hz = round(1.0 / median_dt, 2)
+        except Exception:
+            pass
 
     # ── Split by joint ──
     if schema.joint_column and schema.joint_column in df.columns:
@@ -175,12 +205,18 @@ def map_dataset(
         else:
             time_arr = np.arange(len(group_df), dtype=np.float64)
 
-        # Sensor arrays
+        # Sensor arrays (skip columns that can't be converted to float)
         sensors: dict[str, np.ndarray] = {}
         for orig_col, canon_key in col_to_key.items():
-            if orig_col in group_df.columns:
-                arr = group_df[orig_col].to_numpy(dtype=np.float64, na_value=np.nan)
-                sensors[canon_key] = arr
+            if orig_col not in group_df.columns:
+                continue
+            col = group_df[orig_col]
+            if not pd.api.types.is_numeric_dtype(col):
+                coerced = pd.to_numeric(col, errors="coerce")
+                if coerced.notna().sum() == 0:
+                    continue
+                col = coerced
+            sensors[canon_key] = col.to_numpy(dtype=np.float64, na_value=np.nan)
 
         dataset.joints[joint_name] = JointData(
             joint_name=joint_name,
