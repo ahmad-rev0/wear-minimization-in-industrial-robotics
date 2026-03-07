@@ -398,7 +398,7 @@ export function Dashboard({
               <JointEditor
                 imageUrl={robotImageUrl}
                 initialLayout={jointLayout}
-                jointCount={results?.joints?.length ?? 6}
+                jointIds={results?.joints?.map((j) => j.joint_id) ?? null}
                 onLayoutSaved={handleLayoutSaved}
               />
             </div>

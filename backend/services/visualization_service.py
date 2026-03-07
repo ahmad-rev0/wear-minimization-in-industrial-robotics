@@ -47,8 +47,8 @@ def _wear_to_hex(wear_index: float) -> str:
 
 def layout_2d_to_3d(
     layout: list[dict],
-    height_scale: float = 2.5,
-    depth_scale: float = 2.0,
+    height_scale: float = 3.0,
+    depth_scale: float = 3.0,
 ) -> dict[str, tuple[float, float, float]]:
     """
     Map normalised 2D side-profile coords to 3D positions.
@@ -57,8 +57,13 @@ def layout_2d_to_3d(
     Output: dict mapping joint_id -> (X, Y, Z) for the 3D viewer.
 
     Mapping: ny -> Y (height, 0..height_scale),
-             nx -> Z (depth, centered around 0),
+             nx -> Z (depth, centered around 0, range = depth_scale),
              X  = 0 (side view is flat in X).
+
+    With the default scales (3.0, 3.0), a joint at (0.5, 1.0) maps to
+    (0, 3.0, 0) and one at (1.0, 0.0) maps to (0, 0, 1.5) — comparable
+    to the hardcoded default range of Y=[0..2] Z=[0..0.65] but allowing
+    much larger movement.
     """
     positions: dict[str, tuple[float, float, float]] = {}
     for pt in layout:
