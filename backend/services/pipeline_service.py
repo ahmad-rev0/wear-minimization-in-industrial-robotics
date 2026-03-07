@@ -436,16 +436,5 @@ def _format_results(
 # ── Public entry point ───────────────────────────────────────
 
 def run_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
-    """
-    Execute the analysis pipeline.
-
-    Runs the real pipeline; falls back to mock only on import error.
-    """
-    try:
-        return _run_real_pipeline(sensor_csv, materials_csv)
-    except NotImplementedError:
-        log.warning("Pipeline module not yet implemented — using mock data")
-        return _mock_pipeline(sensor_csv, materials_csv)
-    except Exception:
-        log.exception("Real pipeline failed — falling back to mock data")
-        return _mock_pipeline(sensor_csv, materials_csv)
+    """Execute the analysis pipeline. Errors propagate to the caller."""
+    return _run_real_pipeline(sensor_csv, materials_csv)
