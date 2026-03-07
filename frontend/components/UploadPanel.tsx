@@ -160,6 +160,11 @@ export function UploadPanel({ onAnalysisComplete, loading, setLoading }: Props) 
         <p className="text-[13px] text-zinc-500">
           Upload robot sensor data to detect wear and optimize maintenance
         </p>
+        <p className="text-[11px] text-zinc-600 mt-2 max-w-sm text-center leading-relaxed">
+          For best results, use a CSV with a <span className="text-zinc-400">joint identifier column</span> and
+          sensor readings for <span className="text-zinc-400">multiple joints</span>. Single-joint datasets
+          will be split into synthetic joints for demonstration purposes.
+        </p>
       </div>
 
       {/* Drop zone */}
