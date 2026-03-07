@@ -16,7 +16,6 @@ __pycache__/
 *.h5
 *.joblib
 *.csv
-*.json
 *.zip
 
 # Docker files (for Render, not Vercel)
@@ -25,7 +24,7 @@ Dockerfile
 docker-compose.yml
 render.yaml
 
-# Documentation (safe to exclude)
+# Documentation
 MEGA_PROMPT
 README
 Schema
@@ -33,4 +32,3 @@ Schema
 
 # Git folders
 .git/
-.gitignore
