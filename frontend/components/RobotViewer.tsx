@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import React, { useRef, useState, useEffect, useCallback, Suspense } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import {
   OrbitControls,
@@ -317,6 +317,45 @@ function RobotArm({
   );
 }
 
+// ── Error boundary to recover from Canvas init failures ─────
+
+class ViewerErrorBoundary extends React.Component<
+  { children: React.ReactNode; onRetry: () => void },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(err: Error) {
+    console.warn("[RobotViewer] Canvas error caught — will retry:", err.message);
+  }
+
+  reset = () => this.setState({ hasError: false });
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-zinc-500 text-sm">
+          <p>3D renderer failed to initialize</p>
+          <button
+            onClick={() => {
+              this.reset();
+              this.props.onRetry();
+            }}
+            className="px-4 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors text-[12px] font-medium"
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ── Main viewer component ───────────────────────────────────
 
 interface Props {
@@ -326,6 +365,46 @@ interface Props {
 }
 
 export function RobotViewer({ model, selectedJoint, onJointClick }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [ready, setReady] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
+
+  // Defer Canvas mount until the container has non-zero dimensions.
+  // This avoids WebGL context failures when layout hasn't settled yet.
+  useEffect(() => {
+    if (!model) return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    const check = () => {
+      const { width, height } = el.getBoundingClientRect();
+      if (width > 0 && height > 0) {
+        setReady(true);
+      }
+    };
+
+    // Check on next frame (layout has committed by then)
+    const raf = requestAnimationFrame(() => {
+      check();
+      // Fallback: if still not ready, use ResizeObserver
+      if (!containerRef.current) return;
+      const { width, height } = containerRef.current.getBoundingClientRect();
+      if (width > 0 && height > 0) return;
+      const ro = new ResizeObserver(() => {
+        check();
+        ro.disconnect();
+      });
+      ro.observe(containerRef.current);
+    });
+
+    return () => cancelAnimationFrame(raf);
+  }, [model, retryKey]);
+
+  const handleRetry = useCallback(() => {
+    setReady(false);
+    setRetryKey((k) => k + 1);
+  }, []);
+
   if (!model) {
     return (
       <div className="w-full h-full flex items-center justify-center text-zinc-600">
@@ -335,7 +414,7 @@ export function RobotViewer({ model, selectedJoint, onJointClick }: Props) {
   }
 
   return (
-    <div className="w-full h-full relative">
+    <div ref={containerRef} className="w-full h-full relative">
       {/* Legend overlay */}
       <div className="absolute top-3 left-3 z-10 flex gap-4 text-[12px] text-zinc-400 glass px-4 py-2 rounded-lg border border-zinc-800/40">
         <span className="flex items-center gap-2 font-medium">
@@ -354,51 +433,60 @@ export function RobotViewer({ model, selectedJoint, onJointClick }: Props) {
         Select joint to inspect &middot; Drag to orbit &middot; Right-click to pan
       </div>
 
-      <Canvas
-        camera={{ position: [2.2, 1.8, 3.0], fov: 38 }}
-        gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
-        onPointerMissed={() => onJointClick(null)}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
-        fallback={<div className="w-full h-full flex items-center justify-center text-zinc-500 text-sm">Initializing 3D renderer...</div>}
-      >
-        <color attach="background" args={["#08080c"]} />
-        <fog attach="fog" args={["#08080c", 6, 16]} />
+      {!ready ? (
+        <div className="w-full h-full flex items-center justify-center text-zinc-500 text-sm">
+          Initializing 3D renderer...
+        </div>
+      ) : (
+        <ViewerErrorBoundary onRetry={handleRetry} key={retryKey}>
+          <Canvas
+            camera={{ position: [2.2, 1.8, 3.0], fov: 38 }}
+            gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
+            onPointerMissed={() => onJointClick(null)}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+          >
+            <color attach="background" args={["#08080c"]} />
+            <fog attach="fog" args={["#08080c", 6, 16]} />
 
-        <ambientLight intensity={0.25} />
-        <directionalLight position={[5, 8, 5]} intensity={1.2} castShadow />
-        <pointLight position={[-3, 2, -3]} intensity={0.5} color="#84cc16" />
-        <pointLight position={[3, 0.5, 2]} intensity={0.2} color="#a3e635" />
+            <ambientLight intensity={0.25} />
+            <directionalLight position={[5, 8, 5]} intensity={1.2} castShadow />
+            <pointLight position={[-3, 2, -3]} intensity={0.5} color="#84cc16" />
+            <pointLight position={[3, 0.5, 2]} intensity={0.2} color="#a3e635" />
 
-        <RobotArm
-          model={model}
-          selectedJoint={selectedJoint}
-          onJointClick={onJointClick}
-        />
+            <RobotArm
+              model={model}
+              selectedJoint={selectedJoint}
+              onJointClick={onJointClick}
+            />
 
-        <Grid
-          args={[10, 10]}
-          position={[0, -0.09, 0]}
-          cellSize={0.3}
-          cellColor="#141418"
-          sectionColor="#1e1e24"
-          fadeDistance={8}
-          infiniteGrid
-        />
+            <Grid
+              args={[10, 10]}
+              position={[0, -0.09, 0]}
+              cellSize={0.3}
+              cellColor="#141418"
+              sectionColor="#1e1e24"
+              fadeDistance={8}
+              infiniteGrid
+            />
 
-        <OrbitControls
-          enablePan
-          enableDamping
-          dampingFactor={0.25}
-          target={[0, 0.9, 0.25]}
-          minDistance={1.2}
-          maxDistance={8}
-          minPolarAngle={0.1}
-          maxPolarAngle={Math.PI * 0.85}
-          panSpeed={0.6}
-          rotateSpeed={0.8}
-        />
-        <Environment preset="city" />
-      </Canvas>
+            <OrbitControls
+              enablePan
+              enableDamping
+              dampingFactor={0.25}
+              target={[0, 0.9, 0.25]}
+              minDistance={1.2}
+              maxDistance={8}
+              minPolarAngle={0.1}
+              maxPolarAngle={Math.PI * 0.85}
+              panSpeed={0.6}
+              rotateSpeed={0.8}
+            />
+            <Suspense fallback={null}>
+              <Environment preset="city" />
+            </Suspense>
+          </Canvas>
+        </ViewerErrorBoundary>
+      )}
     </div>
   );
 }
