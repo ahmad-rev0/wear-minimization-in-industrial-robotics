@@ -89,6 +89,28 @@ export async function runAnalysis(
   return res.json();
 }
 
+export async function getStatus(): Promise<{ status: string; message: string | null }> {
+  const res = await fetch(`${API_BASE}/status`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function pollUntilDone(
+  onStatus?: (msg: string) => void,
+  intervalMs = 2000,
+  maxWaitMs = 300000,
+): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    const s = await getStatus();
+    if (s.status === "done") return;
+    if (s.status === "error") throw new Error(s.message ?? "Pipeline failed");
+    onStatus?.(s.message ?? "Running...");
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  throw new Error("Pipeline timed out");
+}
+
 export async function getResults(): Promise<AnalysisResult> {
   const res = await fetch(`${API_BASE}/results`);
   if (!res.ok) throw new Error(await res.text());

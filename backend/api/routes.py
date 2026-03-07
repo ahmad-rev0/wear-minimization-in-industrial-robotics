@@ -12,7 +12,8 @@ Endpoints:
     GET  /available_models   — list available ML algorithms
     POST /model_config       — select ML model + hyperparameters
     GET  /model_config       — retrieve current model config
-    POST /run_analysis       — trigger the full ML pipeline
+    POST /run_analysis       — trigger the full ML pipeline (async)
+    GET  /status             — poll pipeline status
     GET  /results            — retrieve latest analysis results
     GET  /diagnostics        — ML diagnostics (metrics, importance, ROC)
     GET  /robot_model        — get 3D robot model joint data
@@ -543,8 +544,18 @@ async def run_analysis(
         False, description="Use the bundled example dataset instead of an upload"
     ),
 ):
-    """Run the full wear-analysis pipeline on the uploaded (or default) dataset."""
+    """
+    Kick off the ML pipeline in a background thread.
+
+    Returns immediately with status="running". The frontend should poll
+    GET /status until it transitions to "done" or "error".
+    """
+    import threading
+
     state = get_state()
+
+    if state.status == "running":
+        return StatusResponse(status="running", message="Analysis already in progress.")
 
     sensor_csv = state.sensor_csv
     if use_default or sensor_csv is None:
@@ -556,16 +567,35 @@ async def run_analysis(
     state.status = "running"
     state.error = None
 
-    try:
-        results = run_pipeline(sensor_csv, state.materials_csv)
-        state.results = results
-        state.status = "done"
-        return StatusResponse(status="done", message="Analysis complete.")
-    except Exception as exc:
-        log.exception("Pipeline failed")
-        state.status = "error"
-        state.error = str(exc)
-        raise HTTPException(status_code=500, detail=f"Pipeline error: {exc}")
+    def _run():
+        try:
+            results = run_pipeline(sensor_csv, state.materials_csv)
+            state.results = results
+            state.status = "done"
+            log.info("Pipeline completed successfully")
+        except Exception as exc:
+            log.exception("Pipeline failed")
+            state.status = "error"
+            state.error = str(exc)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return StatusResponse(status="running", message="Pipeline started. Poll GET /status for progress.")
+
+
+# ── GET /status ──────────────────────────────────────────────
+
+@router.get("/status", response_model=StatusResponse)
+async def get_status():
+    """Poll pipeline status: idle | running | done | error."""
+    state = get_state()
+    msg = None
+    if state.status == "error":
+        msg = state.error
+    elif state.status == "done":
+        msg = "Analysis complete."
+    elif state.status == "running":
+        msg = "Pipeline is running..."
+    return StatusResponse(status=state.status, message=msg)
 
 
 # ── GET /results ─────────────────────────────────────────────

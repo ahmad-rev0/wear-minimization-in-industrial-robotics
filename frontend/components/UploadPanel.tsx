@@ -5,6 +5,7 @@ import { Upload, FileUp, Zap, Loader2, Wrench, ArrowRight } from "lucide-react";
 import {
   uploadDataset,
   runAnalysis,
+  pollUntilDone,
   getResults,
   getRobotModel,
 } from "@/lib/api";
@@ -33,8 +34,11 @@ export function UploadPanel({ onAnalysisComplete, loading, setLoading }: Props) 
         setUploadedFile(uploadRes.filename);
         setUploadInfo(`${uploadRes.rows.toLocaleString()} rows, ${uploadRes.columns.length} columns`);
 
-        setStep("Running ML pipeline...");
+        setStep("Starting ML pipeline...");
         await runAnalysis();
+
+        setStep("Running ML pipeline...");
+        await pollUntilDone((msg) => setStep(msg));
 
         setStep("Loading results...");
         const [results, model] = await Promise.all([
@@ -57,8 +61,11 @@ export function UploadPanel({ onAnalysisComplete, loading, setLoading }: Props) 
     setError(null);
     setLoading(true);
     try {
-      setStep("Running analysis on example dataset...");
+      setStep("Starting analysis on example dataset...");
       await runAnalysis(true);
+
+      setStep("Running ML pipeline...");
+      await pollUntilDone((msg) => setStep(msg));
 
       setStep("Loading results...");
       const [results, model] = await Promise.all([
