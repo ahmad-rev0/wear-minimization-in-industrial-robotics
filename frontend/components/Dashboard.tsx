@@ -11,6 +11,7 @@ import {
   Wrench,
   RotateCcw,
   Sparkles,
+  Microscope,
 } from "lucide-react";
 import { UploadPanel } from "./UploadPanel";
 import { SensorTimeline } from "./SensorTimeline";
@@ -18,14 +19,15 @@ import { SimulationChart } from "./SimulationChart";
 import { MaterialPanel } from "./MaterialPanel";
 import { WearStatsPanel } from "./WearStatsPanel";
 import { ExportPanel } from "./ExportPanel";
-import type { AnalysisResult, RobotModelData } from "@/lib/api";
+import { DiagnosticsPanel } from "./DiagnosticsPanel";
+import type { AnalysisResult, RobotModelData, DiagnosticsResult } from "@/lib/api";
 
 const RobotViewer = dynamic(
   () => import("./RobotViewer").then((m) => m.RobotViewer),
   { ssr: false, loading: () => <div className="w-full h-full flex items-center justify-center text-zinc-600 text-sm">Loading 3D viewer...</div> }
 );
 
-type View = "dashboard" | "viewer" | "sensors" | "materials" | "upload";
+type View = "dashboard" | "viewer" | "sensors" | "materials" | "diagnostics" | "upload";
 
 const NAV_ITEMS: {
   icon: typeof Activity;
@@ -58,6 +60,12 @@ const NAV_ITEMS: {
     desc: "Per-joint wear diagnostics and ranked material upgrade candidates",
   },
   {
+    icon: Microscope,
+    label: "ML Diagnostics",
+    id: "diagnostics",
+    desc: "Model performance metrics, feature importance, score distributions, and classification analysis",
+  },
+  {
     icon: Upload,
     label: "Upload",
     id: "upload",
@@ -82,6 +90,10 @@ const VIEW_HEADINGS: Record<View, { title: string; subtitle: string }> = {
     title: "Materials & Diagnostics",
     subtitle: "Comprehensive per-joint wear breakdown with ranked material upgrade recommendations",
   },
+  diagnostics: {
+    title: "ML Diagnostics",
+    subtitle: "Model performance evaluation — anomaly score distributions, feature importance, and classification metrics",
+  },
   upload: {
     title: "Upload Dataset",
     subtitle: "Import a sensor CSV file for analysis or run diagnostics on the bundled demonstration dataset",
@@ -91,6 +103,7 @@ const VIEW_HEADINGS: Record<View, { title: string; subtitle: string }> = {
 interface Props {
   results: AnalysisResult | null;
   robotModel: RobotModelData | null;
+  diagnostics: DiagnosticsResult | null;
   onAnalysisComplete: (r: AnalysisResult, m: RobotModelData) => void;
   loading: boolean;
   setLoading: (v: boolean) => void;
@@ -99,6 +112,7 @@ interface Props {
 export function Dashboard({
   results,
   robotModel,
+  diagnostics,
   onAnalysisComplete,
   loading,
   setLoading,
@@ -322,6 +336,26 @@ export function Dashboard({
               <section className="col-span-12 lg:col-span-6">
                 <MaterialPanel recommendations={results.recommendations} />
               </section>
+            </div>
+          )}
+
+          {activeView === "diagnostics" && diagnostics && (
+            <DiagnosticsPanel diagnostics={diagnostics} />
+          )}
+
+          {activeView === "diagnostics" && !diagnostics && results && (
+            <div className="h-full card p-8 flex flex-col items-center justify-center text-center gap-4 animate-fade-in">
+              <div className="w-14 h-14 rounded-2xl bg-zinc-800/60 flex items-center justify-center animate-float">
+                <Microscope className="w-7 h-7 text-zinc-600" />
+              </div>
+              <div>
+                <p className="text-zinc-400 text-[15px] font-medium mb-1">
+                  Diagnostics Loading
+                </p>
+                <p className="text-zinc-500 text-[13px]">
+                  ML diagnostics data is still being prepared
+                </p>
+              </div>
             </div>
           )}
 
