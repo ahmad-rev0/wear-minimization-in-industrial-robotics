@@ -1,4 +1,8 @@
 const API_BASE = "/api";
+const DIRECT_BACKEND =
+  typeof window !== "undefined"
+    ? process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+    : "";
 
 export interface JointWear {
   joint_id: string;
@@ -72,10 +76,23 @@ export interface UploadResponse {
 export async function uploadDataset(file: File): Promise<UploadResponse> {
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(`${API_BASE}/upload_dataset`, {
-    method: "POST",
-    body: form,
-  });
+
+  // Try the Next.js proxy first; fall back to a direct backend call for
+  // large files where the proxy may buffer/timeout.
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/upload_dataset`, {
+      method: "POST",
+      body: form,
+    });
+  } catch {
+    // Proxy failed (timeout / network) — send directly to backend
+    res = await fetch(`${DIRECT_BACKEND}/api/upload_dataset`, {
+      method: "POST",
+      body: form,
+    });
+  }
+
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }

@@ -33,6 +33,7 @@ SENSOR_MODALITIES = [
     "force",
     "position",
     "velocity",
+    "proximity",
 ]
 
 
@@ -170,7 +171,34 @@ _SENSOR_PATTERNS: list[tuple[re.Pattern, str, str]] = [
     (re.compile(r"^vel(?:ocity)?", re.I), "velocity", ""),
     (re.compile(r"^speed", re.I), "velocity", ""),
     (re.compile(r"^omega", re.I), "velocity", ""),
+    # Proximity
+    (re.compile(r"^prox(?:imity)?", re.I), "proximity", ""),
+    (re.compile(r"^dist(?:ance)?[_\-]?(?:sensor)?", re.I), "proximity", ""),
 ]
+
+# Columns that should be excluded from sensor classification entirely.
+# These are metadata, labels, or high-dimensional embeddings that would
+# pollute the ML pipeline with non-physical features.
+_EXCLUDE_PATTERNS = [
+    re.compile(r"^img[_\-]?feat", re.I),
+    re.compile(r"^embed(?:ding)?[_\-]?\d", re.I),
+    re.compile(r"^feat(?:ure)?[_\-]?\d", re.I),
+    re.compile(r"^pca[_\-]?\d", re.I),
+    re.compile(r"^dim[_\-]?\d", re.I),
+    re.compile(r"^label$", re.I),
+    re.compile(r"^target$", re.I),
+    re.compile(r"^class$", re.I),
+    re.compile(r"^category$", re.I),
+    re.compile(r"^image[_\-]?id$", re.I),
+    re.compile(r"^file[_\-]?(?:name|path)$", re.I),
+    re.compile(r"^index$", re.I),
+    re.compile(r"^unnamed", re.I),
+]
+
+
+def _is_excluded(col: str) -> bool:
+    """Return True if the column should be skipped entirely."""
+    return any(p.match(col) for p in _EXCLUDE_PATTERNS)
 
 
 # ── Name-based classification ────────────────────────────────
@@ -303,8 +331,15 @@ def infer_schema(
     unmatched: list[str] = []
     matched_count = 0
 
+    excluded: list[str] = []
+
     # ── Pass 1: name-based matching ──
     for col in columns:
+        # Skip columns that are clearly not sensor data
+        if _is_excluded(col):
+            excluded.append(col)
+            continue
+
         if timestamp_col is None and _match_timestamp(col):
             timestamp_col = col
             matched_count += 1
@@ -326,6 +361,7 @@ def infer_schema(
 
     # ── Pass 2: heuristic fallback for unmatched columns ──
     still_unmatched: list[str] = []
+    _MAX_UNKNOWN_SIGNALS = 20
 
     for col in unmatched:
         series = sample[col]
@@ -342,13 +378,17 @@ def infer_schema(
             matched_count += 1
             continue
 
-        # Try sensor signal
-        if _heuristic_sensor(series) > 0.5:
+        # Try sensor signal (cap the number of unknown signals to avoid
+        # feature explosion from high-dimensional embedding columns)
+        unknown_count = len(sensor_hits.get("unknown_signal", []))
+        if unknown_count < _MAX_UNKNOWN_SIGNALS and _heuristic_sensor(series) > 0.5:
             sensor_hits.setdefault("unknown_signal", []).append((col, col))
             matched_count += 1
             continue
 
         still_unmatched.append(col)
+
+    still_unmatched.extend(excluded)
 
     # ── Build SensorGroups ──
     sensor_groups: dict[str, SensorGroup] = {}
