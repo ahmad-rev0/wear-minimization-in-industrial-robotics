@@ -1,5 +1,5 @@
 const API_BASE = "/api";
-const DIRECT_BACKEND = "";
+const DIRECT_BACKEND = "https://wear-minimization-in-industrial-robotics.onrender.com";
 
 export interface JointWear {
   joint_id: string;
@@ -74,11 +74,10 @@ export async function uploadDataset(file: File): Promise<UploadResponse> {
   const form = new FormData();
   form.append("file", file);
 
-  // Always upload directly to the backend to bypass the Next.js rewrite
-  // proxy's 10 MB body-size limit which truncates large CSV files.
-  const base = DIRECT_BACKEND || API_BASE;
-  const url = base === API_BASE ? `${API_BASE}/upload_dataset` : `${base}/api/upload_dataset`;
-  const res = await fetch(url, { method: "POST", body: form });
+  const res = await fetch(`${DIRECT_BACKEND}/api/upload_dataset`, {
+    method: "POST",
+    body: form,
+  });
 
   if (!res.ok) throw new Error(await res.text());
   return res.json();
@@ -285,9 +284,10 @@ export interface JointPosition2D {
 export async function uploadRobotImage(file: File): Promise<{ filename: string; url: string }> {
   const form = new FormData();
   form.append("file", file);
-  const base = DIRECT_BACKEND || API_BASE;
-  const url = base === API_BASE ? `${API_BASE}/robot_image` : `${base}/api/robot_image`;
-  const res = await fetch(url, { method: "POST", body: form });
+  const res = await fetch(`${DIRECT_BACKEND}/api/robot_image`, {
+    method: "POST",
+    body: form,
+  });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
@@ -301,9 +301,9 @@ export async function getRobotImageUrl(): Promise<string | null> {
 
 export async function detectJoints(jointCount?: number): Promise<JointPosition2D[]> {
   const qs = jointCount ? `?joint_count=${jointCount}` : "";
-  const base = DIRECT_BACKEND || API_BASE;
-  const url = base === API_BASE ? `${API_BASE}/detect_joints${qs}` : `${base}/api/detect_joints${qs}`;
-  const res = await fetch(url, { method: "POST" });
+  const res = await fetch(`${DIRECT_BACKEND}/api/detect_joints${qs}`, {
+    method: "POST",
+  });
   if (!res.ok) throw new Error(await res.text());
   const data = await res.json();
   return data.joints;
@@ -317,9 +317,7 @@ export async function getJointLayout(): Promise<JointPosition2D[] | null> {
 }
 
 export async function saveJointLayout(layout: JointPosition2D[]): Promise<void> {
-  const base = DIRECT_BACKEND || API_BASE;
-  const url = base === API_BASE ? `${API_BASE}/joint_layout` : `${base}/api/joint_layout`;
-  const res = await fetch(url, {
+  const res = await fetch(`${DIRECT_BACKEND}/api/joint_layout`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(layout),

@@ -79,29 +79,36 @@ export function useAnalysis({
     [onComplete, onDiagnosticsUpdate],
   );
 
-  /**
-   * If a completed analysis already exists on the backend, load its results.
-   * Does NOT auto-trigger a new analysis run — that is left to the user.
-   */
+  const fetchDiagnosticsWithRetry = useCallback(
+    async (retries = 3, delayMs = 1500) => {
+      for (let i = 0; i < retries; i++) {
+        try {
+          const d = await getDiagnostics();
+          setDiagnostics(d);
+          onDiagnosticsUpdate?.(d);
+          return;
+        } catch {
+          if (i < retries - 1) {
+            await new Promise((r) => setTimeout(r, delayMs));
+          }
+        }
+      }
+    },
+    [onDiagnosticsUpdate],
+  );
+
   const checkAndRunAnalysis = useCallback(async (): Promise<boolean> => {
     try {
       const resultsData = await getResults();
       const modelData = await getRobotModel();
       setResults(resultsData);
       setRobotModel(modelData);
-
-      getDiagnostics()
-        .then((d) => {
-          setDiagnostics(d);
-          onDiagnosticsUpdate?.(d);
-        })
-        .catch(() => {});
-
+      fetchDiagnosticsWithRetry();
       return false;
     } catch {
       return false;
     }
-  }, [onDiagnosticsUpdate]);
+  }, [fetchDiagnosticsWithRetry]);
 
   const refreshDiagnostics = useCallback(async () => {
     try {
@@ -128,14 +135,9 @@ export function useAnalysis({
       setRobotModel(m);
       setError(null);
       setCurrentStep("Complete");
-      getDiagnostics()
-        .then((d) => {
-          setDiagnostics(d);
-          onDiagnosticsUpdate?.(d);
-        })
-        .catch(() => {});
+      fetchDiagnosticsWithRetry();
     },
-    [onDiagnosticsUpdate],
+    [fetchDiagnosticsWithRetry],
   );
 
   const reset = useCallback(() => {

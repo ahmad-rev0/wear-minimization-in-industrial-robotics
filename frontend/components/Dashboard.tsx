@@ -383,11 +383,17 @@ export function Dashboard() {
               </div>
               <div>
                 <p className="text-zinc-400 text-[15px] font-medium mb-1">
-                  Diagnostics Loading
+                  Diagnostics Not Loaded
                 </p>
-                <p className="text-zinc-500 text-[13px]">
-                  ML diagnostics data is still being prepared
+                <p className="text-zinc-500 text-[13px] mb-3">
+                  ML diagnostics data could not be fetched automatically
                 </p>
+                <button
+                  onClick={refreshDiagnostics}
+                  className="px-4 py-2 rounded-lg text-[12px] font-medium bg-lime-500/15 text-lime-300 border border-lime-500/20 hover:bg-lime-500/25 transition-all"
+                >
+                  Retry Loading Diagnostics
+                </button>
               </div>
             </div>
           )}
