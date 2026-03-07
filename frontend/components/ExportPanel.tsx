@@ -219,7 +219,7 @@ export function ExportPanel({ results }: Props) {
 
       // ── Chart 1: Sensor Timeline ──
       newPageIfNeeded(90);
-      sectionTitle(pdf, "Chart — Sensor Magnetometer Timeline", M, y);
+      sectionTitle(pdf, "Chart — Sensor Signal Timeline", M, y);
       y += 4;
 
       if (results.timeline.magnitude.length > 0) {

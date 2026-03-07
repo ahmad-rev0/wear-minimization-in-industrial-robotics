@@ -52,7 +52,7 @@ const NAV_ITEMS: {
     icon: BarChart3,
     label: "Sensors",
     id: "sensors",
-    desc: "Magnetometer signal analysis and projected wear degradation curves",
+    desc: "Sensor signal analysis and projected wear degradation curves",
   },
   {
     icon: FlaskConical,
@@ -85,7 +85,7 @@ const VIEW_HEADINGS: Record<View, { title: string; subtitle: string }> = {
   },
   sensors: {
     title: "Sensor Analytics",
-    subtitle: "Magnetometer signal timeline with anomaly detection and projected wear degradation forecasts",
+    subtitle: "Sensor signal timeline with anomaly detection and projected wear degradation forecasts",
   },
   materials: {
     title: "Materials & Diagnostics",
