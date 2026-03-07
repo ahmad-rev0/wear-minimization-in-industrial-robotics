@@ -1,8 +1,7 @@
 const API_BASE = "/api";
 const DIRECT_BACKEND =
-  typeof window !== "undefined"
-    ? process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-    : "";
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://wear-minimization-in-industrial-robotics.onrender.com";
 
 export interface JointWear {
   joint_id: string;

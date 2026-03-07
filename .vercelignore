@@ -1,0 +1,34 @@
+# Backend and data folders (NOT needed for frontend)
+backend/
+data/
+pipeline/
+scripts/
+utils/
+deployment/
+.claude/
+.vscode/
+
+# Python files (backend code)
+*.py
+*.pyc
+__pycache__/
+*.pkl
+*.h5
+*.joblib
+*.csv
+*.zip
+
+# Docker files (for Render, not Vercel)
+Dockerfile
+.dockerignore
+docker-compose.yml
+render.yaml
+
+# Documentation
+MEGA_PROMPT
+README
+Schema
+.test_upload
+
+# Git folders
+.git/
