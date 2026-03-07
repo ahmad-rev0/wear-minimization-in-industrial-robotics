@@ -1,0 +1,29 @@
+material_name,hardness,wear_coefficient,density,friction_coefficient,cost_factor
+Alumina Al2O3,1400,0.0004,3.95,0.25,3
+Bronze CuSn8,180,0.003,8.8,0.35,2
+Chromium Carbide Cr3C2,1100,0.0005,6.68,0.28,4
+Diamond-Like Carbon DLC,3000,8e-05,3.5,0.05,9
+HEA Al0.774 Fe1 Mn0.903 Ni0.484 Ti0.026,357,0.00224,6.3,0.41,5
+HEA Al0.8 Cr1 Fe1 Mn1 Ni1,386,0.00207,6.7,0.41,5
+HEA Al1 Co0.333 Cr0.333 Fe0.333 Ni0.333,506,0.00158,5.3,0.43,5
+HEA Al1 Co0.404 Cr0.404 Cu0.106 Fe0.106 Ni0.106,878,0.00091,5.1,0.32,5
+HEA Al1 Co0.426 Cr0.383 Cu0.106 Fe0.106 Ni0.106,883,0.00091,5.1,0.32,5
+HEA Al1 Co0.5 Cr0.5 Cu0.5 Fe0.5,567,0.00141,5.9,0.35,5
+HEA Al1 Co1 Cr0.091 Nb0.727 W0.212,1084,0.00074,7.2,0.32,5
+HEA Al1 Co1 Cr1 Ni1,1183,0.00068,6.4,0.37,5
+HEA Al1 Cu1 Ni1 Ti1,537,0.00149,5.7,0.36,5
+Hardened Steel AISI 52100,850,0.0012,7.81,0.6,1
+Inconel 718,400,0.0017,8.19,0.48,7
+Low Alloy Steel CbH,177,0.00565,7.85,0.45,1
+Low Alloy Steel CbV,179,0.00559,7.85,0.54,1
+Low Alloy Steel VaC (Cr-Mo),241,0.00415,7.85,0.47,1
+Low Alloy Steel VaG (Cr-Mo),241,0.00415,7.85,0.47,1
+Nitrided Steel 38CrMoAl,1050,0.0006,7.85,0.4,3
+Silicon Nitride Si3N4,1500,0.00025,3.21,0.15,5
+Stainless Steel 440C,620,0.0018,7.68,0.55,2
+Stellite 6,450,0.0011,8.44,0.38,6
+Titanium Alloy Ti-6Al-4V,350,0.002,4.43,0.45,5
+Tool Steel D2,780,0.00095,7.7,0.5,2
+Tungsten Carbide WC-Co,1600,0.00015,15.63,0.2,6
+UHMWPE,65,0.005,0.93,0.1,1
+Zirconia ZrO2,1300,0.00035,6.05,0.3,4
