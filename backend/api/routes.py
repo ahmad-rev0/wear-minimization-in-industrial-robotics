@@ -139,6 +139,7 @@ async def upload_dataset(file: UploadFile = File(...)):
     state.results = None
     state.schema_overrides = None
     state.canonical_dataset = None
+    state.model_comparison = {}
 
     # Run schema inference + validation
     schema_pydantic = None
@@ -567,6 +568,7 @@ async def run_analysis(
         state.cached_features = None
         state.diagnostics = None
         state.sensor_csv = None
+        state.model_comparison = {}
 
     if not sensor_csv.exists():
         raise HTTPException(status_code=404, detail="No dataset found. Upload one first.")
@@ -699,6 +701,7 @@ async def set_pipeline_config(body: dict):
     state.canonical_dataset = None
     state.cached_features = None
     state.diagnostics = None
+    state.model_comparison = {}
     log.info(
         "Pipeline config updated: max_rows=%d, contamination=%.2f, deselected=%d features",
         state.max_rows, state.contamination, len(state.deselected_features),

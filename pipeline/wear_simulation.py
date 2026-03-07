@@ -143,9 +143,16 @@ def compare_material_scenarios(
     top_n: int = 3,
     time_horizon: int = 100,
     time_step: int = 5,
+    ranked_names: list[str] | None = None,
 ) -> pd.DataFrame:
     """
     Simulate the top-N best materials against the current baseline.
+
+    Parameters
+    ----------
+    ranked_names : if provided, use these material names (in order) instead
+                   of computing a static ranking.  Allows the chart to
+                   reflect the same dataset-aware ranking as the panel.
 
     Returns a DataFrame with columns:
         joint_id, time, projected_wear, material_name
@@ -154,21 +161,14 @@ def compare_material_scenarios(
     """
     baseline_coeff = materials_df["wear_coefficient"].max()
 
-    # Current trajectory (no material change)
     current = simulate_future_wear(wear_data, time_horizon, time_step)
-    current["material_name"] = "Current Material"
+    current["material_name"] = "Current Material (assumed worst-case)"
 
-    # Pick diverse materials: best, median, and one in-between
-    sorted_mats = materials_df.sort_values("wear_coefficient").reset_index(drop=True)
-    indices: list[int] = []
-    n_mats = len(sorted_mats)
-    if n_mats <= top_n:
-        indices = list(range(n_mats))
+    if ranked_names:
+        names = ranked_names[:top_n]
+        best_materials = materials_df[materials_df["material_name"].isin(names)]
     else:
-        step = max(1, (n_mats - 1) / (top_n - 1))
-        indices = [min(int(round(i * step)), n_mats - 1) for i in range(top_n)]
-        indices = list(dict.fromkeys(indices))
-    best_materials = sorted_mats.iloc[indices]
+        best_materials = materials_df.nsmallest(top_n, "wear_coefficient")
     improved = []
     for _, mat in best_materials.iterrows():
         sim = simulate_material_improvement(

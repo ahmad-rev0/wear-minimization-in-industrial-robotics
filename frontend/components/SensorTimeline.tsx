@@ -147,7 +147,7 @@ export function SensorTimeline({ timeline }: Props) {
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={data}
-            margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+            margin={{ top: 4, right: 8, bottom: 20, left: 4 }}
           >
             <defs>
               <linearGradient id="magGradient" x1="0" y1="0" x2="0" y2="1">
@@ -164,16 +164,17 @@ export function SensorTimeline({ timeline }: Props) {
               tickLine={false}
               axisLine={{ stroke: "#1e1e28" }}
               allowDataOverflow
-              label={{ value: "Sample Index", position: "insideBottom", offset: -2, fontSize: 11, fill: "#71717a" }}
+              label={{ value: "Sample Index", position: "insideBottom", offset: -6, fontSize: 10, fill: "#71717a" }}
+              tickCount={8}
             />
             <YAxis
               domain={[domainMinY, domainMaxY]}
               tick={{ fontSize: 10, fill: "#52525b" }}
               tickLine={false}
               axisLine={{ stroke: "#1e1e28" }}
-              width={50}
+              width={52}
               allowDataOverflow
-              label={{ value: "Signal Magnitude", angle: -90, position: "insideLeft", offset: 10, fontSize: 11, fill: "#71717a" }}
+              label={{ value: "Signal Magnitude", angle: -90, position: "insideLeft", offset: 8, fontSize: 10, fill: "#71717a" }}
             />
             <Tooltip
               contentStyle={{

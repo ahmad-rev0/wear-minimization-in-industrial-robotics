@@ -14,6 +14,7 @@ import {
   LineChart,
   Line,
   Cell,
+  LabelList,
 } from "recharts";
 import {
   Brain,
@@ -296,20 +297,27 @@ function OverviewTab({ diagnostics, comparison }: { diagnostics: DiagnosticsResu
             <Target className="w-3.5 h-3.5 text-lime-400" />
             <h3 className="text-[13px] font-semibold text-zinc-200">Anomaly Rate by Joint</h3>
           </div>
-          <div className="h-[160px]">
+          <div className="h-[180px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={jointData} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+              <BarChart data={jointData} layout="vertical" margin={{ left: 10, right: 50, top: 5, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={ZINC_800} horizontal={false} />
-                <XAxis type="number" tick={{ fill: ZINC_600, fontSize: 10 }} domain={[0, "dataMax"]} unit="%" />
-                <YAxis type="category" dataKey="name" tick={{ fill: "#a1a1aa", fontSize: 11 }} width={65} />
+                <XAxis type="number" tick={{ fill: ZINC_600, fontSize: 10 }} domain={[0, "dataMax"]} unit="%" tickCount={5} />
+                <YAxis type="category" dataKey="name" tick={{ fill: "#a1a1aa", fontSize: 11 }} width={70} />
                 <Tooltip
                   contentStyle={{ background: "#0e0e14", border: "1px solid #1e1e28", borderRadius: 10, fontSize: 12 }}
-                  formatter={(v: number) => [`${v}%`, "Anomaly Rate"]}
+                  formatter={(v: number) => [`${v.toFixed(1)}%`, "Anomaly Rate"]}
+                  labelFormatter={(label: string) => `Joint: ${label}`}
                 />
                 <Bar dataKey="rate" radius={[0, 4, 4, 0]} maxBarSize={18}>
                   {jointData.map((d, i) => (
                     <Cell key={i} fill={d.rate > 15 ? RED : d.rate > 8 ? AMBER : LIME} fillOpacity={0.85} />
                   ))}
+                  <LabelList
+                    dataKey="rate"
+                    position="right"
+                    formatter={(v: number) => `${v.toFixed(1)}%`}
+                    style={{ fill: "#a1a1aa", fontSize: 10, fontFamily: "monospace" }}
+                  />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -333,16 +341,22 @@ function OverviewTab({ diagnostics, comparison }: { diagnostics: DiagnosticsResu
                   isCurrent: id === diagnostics.model_id,
                 }))}
                 layout="vertical"
-                margin={{ left: 10, right: 30, top: 5, bottom: 5 }}
+                margin={{ left: 10, right: 55, top: 5, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke={ZINC_800} horizontal={false} />
-                <XAxis type="number" tick={{ fill: ZINC_600, fontSize: 10 }} domain={[-1, 1]} />
-                <YAxis type="category" dataKey="name" tick={{ fill: "#a1a1aa", fontSize: 11 }} width={120} />
+                <XAxis type="number" tick={{ fill: ZINC_600, fontSize: 10 }} domain={[0, 1]} tickCount={6} />
+                <YAxis type="category" dataKey="name" tick={{ fill: "#a1a1aa", fontSize: 11 }} width={140} />
                 <Tooltip
                   contentStyle={{ background: "#0e0e14", border: "1px solid #1e1e28", borderRadius: 10, fontSize: 12 }}
-                  formatter={(v: number) => [v.toFixed(4), "Silhouette"]}
+                  formatter={(v: number) => [v.toFixed(4), "Silhouette Score"]}
                 />
                 <Bar dataKey="silhouette" radius={[0, 4, 4, 0]} maxBarSize={18}>
+                  <LabelList
+                    dataKey="silhouette"
+                    position="right"
+                    formatter={(v: number) => v.toFixed(4)}
+                    style={{ fill: "#a1a1aa", fontSize: 10, fontFamily: "monospace" }}
+                  />
                   {Object.entries(comparison).map(([id], i) => (
                     <Cell
                       key={i}
@@ -444,10 +458,10 @@ function ScoreDistributionTab({ diagnostics }: { diagnostics: DiagnosticsResult 
           <h3 className="text-[13px] font-semibold text-zinc-200 mb-3">Anomaly Score Histogram</h3>
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={histogramData} margin={{ left: 5, right: 15, top: 5, bottom: 5 }}>
+              <BarChart data={histogramData} margin={{ left: 5, right: 15, top: 5, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={ZINC_800} />
-                <XAxis dataKey="bin" tick={{ fill: ZINC_600, fontSize: 10 }} label={{ value: "Anomaly Score", position: "insideBottom", offset: -2, fill: ZINC_600, fontSize: 11 }} />
-                <YAxis tick={{ fill: ZINC_600, fontSize: 10 }} label={{ value: "Count", angle: -90, position: "insideLeft", fill: ZINC_600, fontSize: 11 }} />
+                <XAxis dataKey="bin" tick={{ fill: ZINC_600, fontSize: 9 }} interval="preserveStartEnd" label={{ value: "Anomaly Score", position: "insideBottom", offset: -6, fill: ZINC_600, fontSize: 10 }} />
+                <YAxis tick={{ fill: ZINC_600, fontSize: 10 }} label={{ value: "Count", angle: -90, position: "insideLeft", offset: 8, fill: ZINC_600, fontSize: 10 }} />
                 <Tooltip
                   contentStyle={{ background: "#0e0e14", border: "1px solid #1e1e28", borderRadius: 10, fontSize: 12 }}
                   formatter={(v: number) => [v, "Samples"]}
@@ -524,20 +538,20 @@ function FeatureImportanceTab({ diagnostics }: { diagnostics: DiagnosticsResult 
         <h3 className="text-[13px] font-semibold text-zinc-200 mb-3">Top {fi.top_n} Features</h3>
         <div className="h-[400px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} layout="vertical" margin={{ left: 20, right: 30, top: 5, bottom: 5 }}>
+            <BarChart data={chartData} layout="vertical" margin={{ left: 20, right: 30, top: 5, bottom: 18 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={ZINC_800} horizontal={false} />
               <XAxis
                 type="number"
                 tick={{ fill: ZINC_600, fontSize: 10 }}
                 domain={[0, 100]}
                 unit="%"
-                label={{ value: "Relative Importance", position: "insideBottom", offset: -2, fill: ZINC_600, fontSize: 11 }}
+                label={{ value: "Relative Importance", position: "insideBottom", offset: -6, fill: ZINC_600, fontSize: 10 }}
               />
               <YAxis
                 type="category"
                 dataKey="name"
-                tick={{ fill: "#a1a1aa", fontSize: 10 }}
-                width={160}
+                tick={{ fill: "#a1a1aa", fontSize: 9 }}
+                width={150}
               />
               <Tooltip
                 contentStyle={{ background: "#0e0e14", border: "1px solid #1e1e28", borderRadius: 10, fontSize: 12 }}
@@ -577,6 +591,18 @@ function ThresholdTab({ diagnostics }: { diagnostics: DiagnosticsResult }) {
 
   return (
     <div className="flex flex-col gap-3.5">
+      {/* Explainer */}
+      <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-zinc-900/60 border border-zinc-800/50">
+        <Info className="w-4 h-4 text-zinc-500 mt-0.5 flex-shrink-0" />
+        <div className="text-[11.5px] text-zinc-500 leading-relaxed">
+          <span className="text-zinc-300 font-medium">Threshold Analysis</span> shows how the
+          anomaly detection model&apos;s decision boundary affects results. The <span className="text-zinc-300">score threshold</span> is
+          the anomaly score cutoff — samples scoring above the threshold are flagged as anomalies.
+          Lower thresholds flag more anomalies (higher sensitivity), while higher thresholds flag
+          fewer (higher specificity). Use this to evaluate model behaviour and choose an operating point.
+        </div>
+      </div>
+
       {/* Threshold sweep chart */}
       <div className="card p-4">
         <div className="flex items-center justify-between mb-3">
@@ -592,16 +618,18 @@ function ThresholdTab({ diagnostics }: { diagnostics: DiagnosticsResult }) {
         {chartData.length > 0 ? (
           <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ left: 10, right: 20, top: 5, bottom: 18 }}>
+              <AreaChart data={chartData} margin={{ left: 10, right: 20, top: 5, bottom: 22 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={ZINC_800} />
                 <XAxis
                   dataKey="threshold"
-                  tick={{ fill: ZINC_600, fontSize: 10 }}
-                  label={{ value: "Score Threshold", position: "insideBottom", offset: -4, fill: ZINC_600, fontSize: 11 }}
+                  tick={{ fill: ZINC_600, fontSize: 9 }}
+                  tickCount={8}
+                  label={{ value: "Score Threshold", position: "insideBottom", offset: -8, fill: ZINC_600, fontSize: 10 }}
                 />
                 <YAxis
                   tick={{ fill: ZINC_600, fontSize: 10 }}
-                  label={{ value: "Anomaly Count", angle: -90, position: "insideLeft", offset: 10, fill: ZINC_600, fontSize: 11 }}
+                  tickCount={6}
+                  label={{ value: "Anomaly Count", angle: -90, position: "insideLeft", offset: 8, fill: ZINC_600, fontSize: 10 }}
                 />
                 <Tooltip
                   contentStyle={{ background: "#0e0e14", border: "1px solid #1e1e28", borderRadius: 10, fontSize: 12 }}
@@ -632,22 +660,27 @@ function ThresholdTab({ diagnostics }: { diagnostics: DiagnosticsResult }) {
       {/* Anomaly rate sweep */}
       {chartData.length > 0 && (
         <div className="card p-4">
-          <h3 className="text-[13px] font-semibold text-zinc-200 mb-3">
+          <h3 className="text-[13px] font-semibold text-zinc-200 mb-1">
             Anomaly Rate (%) vs. Threshold
           </h3>
+          <p className="text-[11px] text-zinc-600 mb-3">
+            Percentage of samples classified as anomalous at each score threshold
+          </p>
           <div className="h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ left: 10, right: 20, top: 5, bottom: 18 }}>
+              <LineChart data={chartData} margin={{ left: 10, right: 20, top: 5, bottom: 22 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={ZINC_800} />
                 <XAxis
                   dataKey="threshold"
-                  tick={{ fill: ZINC_600, fontSize: 10 }}
-                  label={{ value: "Score Threshold", position: "insideBottom", offset: -4, fill: ZINC_600, fontSize: 11 }}
+                  tick={{ fill: ZINC_600, fontSize: 9 }}
+                  tickCount={8}
+                  label={{ value: "Score Threshold", position: "insideBottom", offset: -8, fill: ZINC_600, fontSize: 10 }}
                 />
                 <YAxis
                   tick={{ fill: ZINC_600, fontSize: 10 }}
                   unit="%"
-                  label={{ value: "Anomaly Rate (%)", angle: -90, position: "insideLeft", offset: 10, fill: ZINC_600, fontSize: 11 }}
+                  tickCount={6}
+                  label={{ value: "Anomaly Rate (%)", angle: -90, position: "insideLeft", offset: 8, fill: ZINC_600, fontSize: 10 }}
                 />
                 <Tooltip
                   contentStyle={{ background: "#0e0e14", border: "1px solid #1e1e28", borderRadius: 10, fontSize: 12 }}

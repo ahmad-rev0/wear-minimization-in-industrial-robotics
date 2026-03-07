@@ -236,7 +236,14 @@ export interface AvailableModel {
 export async function getAvailableModels(): Promise<Record<string, AvailableModel>> {
   const res = await fetch(`${API_BASE}/available_models`);
   if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  const data = await res.json();
+  // Backend returns { models: [...], active_model: "..." } — convert to dict
+  const arr: AvailableModel[] = data.models ?? [];
+  const dict: Record<string, AvailableModel> = {};
+  for (const m of arr) {
+    dict[m.model_id] = m;
+  }
+  return dict;
 }
 
 export async function setModelConfig(

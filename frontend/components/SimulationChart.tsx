@@ -173,12 +173,18 @@ export function SimulationChart({
         </div>
       </div>
 
+      {mode === "materials" && (
+        <p className="text-[10.5px] text-zinc-600 mb-1 flex-shrink-0">
+          Baseline assumes the worst-case material from the catalogue. Top materials ranked by practicality (wear reduction / density).
+        </p>
+      )}
+
       <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%">
           {mode === "joints" ? (
             <LineChart
               data={jointData}
-              margin={{ top: 4, right: 8, bottom: 18, left: 4 }}
+              margin={{ top: 24, right: 8, bottom: 28, left: 6 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#18181f" />
               <XAxis
@@ -189,17 +195,18 @@ export function SimulationChart({
                 tickLine={false}
                 axisLine={{ stroke: "#1e1e28" }}
                 allowDataOverflow
-                label={{ value: "Time (months)", position: "insideBottom", offset: -4, fontSize: 11, fill: "#71717a" }}
+                label={{ value: "Time (months)", position: "insideBottom", offset: -8, fontSize: 10, fill: "#71717a" }}
+                tickCount={8}
               />
               <YAxis
                 domain={yDomain}
                 tick={{ fontSize: 10, fill: "#52525b" }}
                 tickLine={false}
                 axisLine={{ stroke: "#1e1e28" }}
-                width={42}
+                width={44}
                 tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
                 allowDataOverflow
-                label={{ value: "Wear Index", angle: -90, position: "insideLeft", offset: 10, fontSize: 11, fill: "#71717a" }}
+                label={{ value: "Wear Index", angle: -90, position: "insideLeft", offset: 8, fontSize: 10, fill: "#71717a" }}
               />
               <Tooltip
                 contentStyle={{
@@ -216,7 +223,9 @@ export function SimulationChart({
                 ]}
               />
               <Legend
-                wrapperStyle={{ fontSize: "10px" }}
+                verticalAlign="top"
+                height={20}
+                wrapperStyle={{ fontSize: "10px", top: 0 }}
                 formatter={(v: string) => v.replace("_", " ")}
               />
               {activeJoints.map((s) => (
@@ -260,7 +269,7 @@ export function SimulationChart({
           ) : (
             <LineChart
               data={materialData.data}
-              margin={{ top: 4, right: 8, bottom: 18, left: 4 }}
+              margin={{ top: 24, right: 8, bottom: 28, left: 6 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#18181f" />
               <XAxis
@@ -271,17 +280,19 @@ export function SimulationChart({
                 tickLine={false}
                 axisLine={{ stroke: "#1e1e28" }}
                 allowDataOverflow
-                label={{ value: "Time (months)", position: "insideBottom", offset: -4, fontSize: 11, fill: "#71717a" }}
+                label={{ value: "Time (months)", position: "insideBottom", offset: -8, fontSize: 10, fill: "#71717a" }}
+                tickCount={8}
               />
               <YAxis
                 domain={yDomain}
                 tick={{ fontSize: 10, fill: "#52525b" }}
                 tickLine={false}
                 axisLine={{ stroke: "#1e1e28" }}
-                width={52}
+                width={55}
                 tickFormatter={(v: number) => `${(v * 100).toFixed(2)}%`}
                 allowDataOverflow
-                label={{ value: "Wear Index", angle: -90, position: "insideLeft", offset: 10, fontSize: 11, fill: "#71717a" }}
+                label={{ value: "Wear Index", angle: -90, position: "insideLeft", offset: 8, fontSize: 10, fill: "#71717a" }}
+                tickCount={6}
               />
               <Tooltip
                 contentStyle={{
@@ -296,7 +307,7 @@ export function SimulationChart({
                   typeof name === "string" ? name : "",
                 ]}
               />
-              <Legend wrapperStyle={{ fontSize: "10px" }} />
+              <Legend verticalAlign="top" height={20} wrapperStyle={{ fontSize: "10px", top: 0 }} />
               {materialData.materials.map((mat, i) => (
                 <Line
                   key={mat}

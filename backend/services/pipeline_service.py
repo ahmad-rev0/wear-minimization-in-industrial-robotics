@@ -266,7 +266,10 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
 
     log.info("Simulating future wear (baseline + top-3 material scenarios)")
     sim = simulate_future_wear(wear)
-    material_scenarios = compare_material_scenarios(wear, materials, top_n=3)
+    top_material_names = [r["material_name"] for r in recs[:3]]
+    material_scenarios = compare_material_scenarios(
+        wear, materials, top_n=3, ranked_names=top_material_names,
+    )
 
     state.progress = "Building sensor timeline..."
     timeline = _build_timeline(features)
