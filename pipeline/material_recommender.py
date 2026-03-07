@@ -9,6 +9,10 @@ Lower adjusted wear → better recommendation.
 The baseline is the *worst* wear_coefficient in the materials catalogue
 (i.e. the softest, least wear-resistant material).  Every other material
 is scored by how much it improves over that baseline.
+
+The practicality score additionally accounts for density and cost, so
+expensive coatings like DLC are penalised even when they have superior
+wear properties.
 """
 
 import pandas as pd
@@ -21,6 +25,9 @@ def load_materials(path: str) -> pd.DataFrame:
     missing = required - set(df.columns)
     if missing:
         raise ValueError(f"Materials CSV missing columns: {missing}")
+    # cost_factor is optional — default to 3 (mid-range) if absent
+    if "cost_factor" not in df.columns:
+        df["cost_factor"] = 3
     return df
 
 
@@ -57,9 +64,9 @@ def rank_materials(
       - High signal energy → low-friction materials get a bigger boost
       - High anomaly rate → hard materials get a bigger boost
 
-    The composite is penalised by relative density for the final
-    practicality score.  Different datasets will thus produce different
-    rankings among materials with similar wear coefficients.
+    The composite is penalised by both relative density AND cost_factor
+    so that expensive coatings (e.g. DLC) don't dominate the ranking
+    even when their wear properties are superior.
     """
     worst = wear_data.sort_values("wear_index", ascending=False).iloc[0]
     baseline_rate = worst["wear_rate"]
@@ -68,6 +75,7 @@ def rank_materials(
     min_density = materials_df["density"].min()
     max_hardness = materials_df["hardness"].max()
     max_friction = materials_df["friction_coefficient"].max()
+    min_cost = float(materials_df["cost_factor"].min()) if "cost_factor" in materials_df.columns else 1.0
 
     friction_w, hardness_w = _dataset_condition_weights(wear_data)
 
@@ -77,18 +85,24 @@ def rank_materials(
         reduction_pct = round((1.0 - adjusted_rate / baseline_rate) * 100, 2)
         reduction_pct = max(reduction_pct, 0.0)
 
-        wear_norm = reduction_pct / 100.0  # 0–1, gating factor
+        wear_norm = reduction_pct / 100.0
         friction_norm = 1.0 - mat["friction_coefficient"] / max_friction if max_friction > 0 else 0.0
         hardness_norm = mat["hardness"] / max_hardness if max_hardness > 0 else 0.0
 
-        # Wear reduction gates: materials with poor wear never score highly.
-        # Friction and hardness give dataset-dependent differentiation.
         bonus = friction_w * friction_norm * 0.35 + hardness_w * hardness_norm * 0.35
-        composite = wear_norm * (1.0 + bonus)
+        # wear_norm^1.5 strongly penalises materials with poor wear reduction
+        # so low-density/low-cost materials can't game the ranking
+        composite = (wear_norm ** 1.5) * (1.0 + bonus)
 
         density = float(mat["density"])
         relative_density = density / min_density if min_density > 0 else 1.0
-        practicality_score = round(composite * 100.0 / relative_density, 2)
+
+        cost = float(mat.get("cost_factor", 3))
+        relative_cost = cost / min_cost if min_cost > 0 else 1.0
+
+        # Penalise by sqrt(cost) so expensive materials are disadvantaged
+        # but not completely eliminated (a cost=9 material gets ~3x penalty)
+        practicality_score = round(composite * 100.0 / (relative_density * relative_cost ** 0.5), 2)
 
         recommendations.append({
             "material_name": mat["material_name"],
