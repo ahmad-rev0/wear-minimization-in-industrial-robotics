@@ -177,6 +177,22 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
     features = detect_anomalies(features, model_config=model_config)
     anom_stats = anomaly_rate_per_joint(features)
 
+    # Generate ML diagnostics
+    log.info("Generating ML diagnostics report")
+    from pipeline.evaluation import generate_diagnostics
+    diagnostics = generate_diagnostics(
+        features, model_config=model_config, compute_importance=True,
+    )
+    state.diagnostics = diagnostics
+    log.info(
+        "Diagnostics: silhouette=%.4f, anomaly_rate=%.3f, top_feature=%s",
+        diagnostics.unsupervised.silhouette_score or 0.0,
+        diagnostics.unsupervised.global_anomaly_rate,
+        diagnostics.feature_importance.features[0].feature
+        if diagnostics.feature_importance and diagnostics.feature_importance.features
+        else "N/A",
+    )
+
     energy_col = _find_energy_column(features)
     log.info("Using '%s' as signal energy metric", energy_col)
     energy_stats = (

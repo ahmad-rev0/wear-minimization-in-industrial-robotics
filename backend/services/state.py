@@ -36,6 +36,8 @@ class AppState:
     joint_params: Optional[dict] = None             # dict[str, JointParameters]
     # ML model config (set via /model_config)
     model_config: Optional[Any] = None              # ModelConfig dataclass
+    # ML diagnostics (set after pipeline run)
+    diagnostics: Optional[Any] = None               # DiagnosticsReport dataclass
 
 
 _state = AppState()

@@ -14,6 +14,7 @@ Endpoints:
     GET  /model_config       — retrieve current model config
     POST /run_analysis       — trigger the full ML pipeline
     GET  /results            — retrieve latest analysis results
+    GET  /diagnostics        — ML diagnostics (metrics, importance, ROC)
     GET  /robot_model        — get 3D robot model joint data
 """
 
@@ -44,6 +45,7 @@ from backend.models.schemas import (
     AvailableModelsResponse,
     ModelConfigRequest,
     ModelConfigResponse,
+    DiagnosticsResponse,
     AnalysisResult,
     RobotModelData,
     StatusResponse,
@@ -581,6 +583,30 @@ async def get_results():
         raise HTTPException(status_code=500, detail=f"Last run failed: {state.error}")
 
     return state.results
+
+
+# ── GET /diagnostics ─────────────────────────────────────────
+
+@router.get("/diagnostics", response_model=DiagnosticsResponse)
+async def get_diagnostics():
+    """
+    Return ML diagnostics from the last pipeline run.
+
+    Includes:
+        - Unsupervised metrics (silhouette score, anomaly score distributions)
+        - Supervised metrics (confusion matrix, ROC, precision/recall — if labels exist)
+        - Feature importance (top contributing features)
+    """
+    state = get_state()
+
+    if state.diagnostics is None:
+        if state.status == "idle":
+            raise HTTPException(status_code=404, detail="No analysis has been run yet.")
+        if state.status == "running":
+            raise HTTPException(status_code=202, detail="Analysis is still running.")
+        raise HTTPException(status_code=404, detail="Diagnostics not available.")
+
+    return state.diagnostics.to_dict()
 
 
 # ── GET /robot_model ─────────────────────────────────────────

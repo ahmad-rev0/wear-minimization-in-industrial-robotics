@@ -242,6 +242,87 @@ class AnalysisResult(BaseModel):
     timeline: dict  # raw time-series for the sensor chart
 
 
+# ── ML Diagnostics ───────────────────────────────────────────
+
+class ScoreDistributionSchema(BaseModel):
+    joint_id: str
+    mean: float
+    std: float
+    min: float
+    max: float
+    median: float
+    q25: float
+    q75: float
+    n_total: int
+    n_anomalies: int
+    anomaly_rate: float
+    histogram_bins: list[float] = []
+    histogram_counts: list[int] = []
+
+
+class UnsupervisedMetricsSchema(BaseModel):
+    silhouette_score: Optional[float] = None
+    calinski_harabasz_score: Optional[float] = None
+    global_anomaly_rate: float = 0.0
+    n_total: int = 0
+    n_anomalies: int = 0
+    score_distributions: list[ScoreDistributionSchema] = []
+    overall_distribution: Optional[ScoreDistributionSchema] = None
+
+
+class ConfusionMatrixSchema(BaseModel):
+    tp: int = 0
+    fp: int = 0
+    tn: int = 0
+    fn: int = 0
+    precision: float = 0.0
+    recall: float = 0.0
+    f1_score: float = 0.0
+    accuracy: float = 0.0
+    support_normal: int = 0
+    support_anomaly: int = 0
+    matrix: list[list[int]] = [[0, 0], [0, 0]]
+    labels: list[str] = ["Normal", "Anomaly"]
+
+
+class ROCCurveSchema(BaseModel):
+    fpr: list[float] = []
+    tpr: list[float] = []
+    thresholds: list[float] = []
+    auc: float = 0.0
+
+
+class SupervisedMetricsSchema(BaseModel):
+    has_labels: bool = False
+    confusion_matrix: Optional[ConfusionMatrixSchema] = None
+    roc_curve: Optional[ROCCurveSchema] = None
+    per_joint: Optional[dict[str, ConfusionMatrixSchema]] = None
+
+
+class FeatureImportanceEntrySchema(BaseModel):
+    feature: str
+    importance: float
+    std: float = 0.0
+    rank: int = 0
+
+
+class FeatureImportanceSchema(BaseModel):
+    method: str = "correlation"
+    features: list[FeatureImportanceEntrySchema] = []
+    top_n: int = 0
+
+
+class DiagnosticsResponse(BaseModel):
+    """Full ML diagnostics returned by GET /diagnostics."""
+    model_id: str
+    model_display_name: str
+    n_features_used: int = 0
+    feature_names: list[str] = []
+    unsupervised: Optional[UnsupervisedMetricsSchema] = None
+    supervised: Optional[SupervisedMetricsSchema] = None
+    feature_importance: Optional[FeatureImportanceSchema] = None
+
+
 # ── 3D Viewer ────────────────────────────────────────────────
 
 class JointModel(BaseModel):
