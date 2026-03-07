@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://your-backend-url.example.com/api/:path*"
+      "destination": "https://robofix-backend.onrender.com/api/:path*"
     }
   ],
   "headers": [
