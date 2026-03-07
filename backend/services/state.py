@@ -45,6 +45,9 @@ class AppState:
     max_rows: int = 20000                            # auto-downsample limit
     contamination: float = 0.1                       # anomaly fraction for detection
     deselected_features: list = field(default_factory=list)  # features to exclude
+    # Joint mapping
+    robot_image_path: Optional[Path] = None          # uploaded robot side-profile image
+    custom_joint_layout: Optional[list] = None       # [{joint_id, nx, ny}, ...] normalised 2D
 
 
 _state = AppState()

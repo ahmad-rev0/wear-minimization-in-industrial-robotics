@@ -12,6 +12,7 @@ import {
   RotateCcw,
   Sparkles,
   Microscope,
+  Crosshair,
 } from "lucide-react";
 import { UploadPanel } from "./UploadPanel";
 import { SensorTimeline } from "./SensorTimeline";
@@ -21,14 +22,17 @@ import { WearStatsPanel } from "./WearStatsPanel";
 import { ExportPanel } from "./ExportPanel";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
 import { ConfigPanel } from "./ConfigPanel";
+import { JointEditor } from "./JointEditor";
 import type { AnalysisResult, RobotModelData, DiagnosticsResult } from "@/lib/api";
+import { getRobotImageUrl, getJointLayout, getRobotModel } from "@/lib/api";
+import type { JointPosition2D } from "@/lib/api";
 
 const RobotViewer = dynamic(
   () => import("./RobotViewer").then((m) => m.RobotViewer),
   { ssr: false, loading: () => <div className="w-full h-full flex items-center justify-center text-zinc-600 text-sm">Loading 3D viewer...</div> }
 );
 
-type View = "dashboard" | "viewer" | "sensors" | "materials" | "diagnostics" | "upload";
+type View = "dashboard" | "viewer" | "sensors" | "materials" | "diagnostics" | "joint_editor" | "upload";
 
 const NAV_ITEMS: {
   icon: typeof Activity;
@@ -67,6 +71,12 @@ const NAV_ITEMS: {
     desc: "Model performance metrics, feature importance, score distributions, and classification analysis",
   },
   {
+    icon: Crosshair,
+    label: "Joint Layout",
+    id: "joint_editor",
+    desc: "Map joint positions onto a robot photo — auto-detect or manually drag to customise the 3D layout",
+  },
+  {
     icon: Upload,
     label: "Upload",
     id: "upload",
@@ -94,6 +104,10 @@ const VIEW_HEADINGS: Record<View, { title: string; subtitle: string }> = {
   diagnostics: {
     title: "ML Diagnostics",
     subtitle: "Model performance evaluation — anomaly score distributions, feature importance, and classification metrics",
+  },
+  joint_editor: {
+    title: "Joint Layout Editor",
+    subtitle: "Position joint markers on a robot side-profile photo to create a custom 3D geometry for the viewer",
   },
   upload: {
     title: "Upload Dataset",
@@ -126,6 +140,8 @@ export function Dashboard({
     "sensor"
   );
   const [hoveredNav, setHoveredNav] = useState<View | null>(null);
+  const [robotImageUrl, setRobotImageUrl] = useState<string | null>(null);
+  const [jointLayout, setJointLayout] = useState<JointPosition2D[] | null>(null);
 
   const handleJointClick = useCallback((jointId: string | null) => {
     setSelectedJoint((prev) =>
@@ -135,7 +151,19 @@ export function Dashboard({
 
   const handleNavClick = useCallback((id: View) => {
     setActiveView(id);
+    if (id === "joint_editor") {
+      getRobotImageUrl().then(setRobotImageUrl).catch(() => {});
+      getJointLayout().then(setJointLayout).catch(() => {});
+    }
   }, []);
+
+  const handleLayoutSaved = useCallback(async () => {
+    if (!results) return;
+    try {
+      const model = await getRobotModel();
+      onAnalysisComplete(results, model);
+    } catch { /* ignore */ }
+  }, [results, onAnalysisComplete]);
 
   const handleAnalysis = useCallback(
     (r: AnalysisResult, m: RobotModelData) => {
@@ -145,7 +173,7 @@ export function Dashboard({
     [onAnalysisComplete]
   );
 
-  const needsResults = activeView !== "upload" && activeView !== "dashboard";
+  const needsResults = activeView !== "upload" && activeView !== "dashboard" && activeView !== "joint_editor";
   const showUpload =
     activeView === "upload" || (!results && activeView === "dashboard");
 
@@ -365,7 +393,18 @@ export function Dashboard({
             </div>
           )}
 
-          {!results && !showUpload && (
+          {activeView === "joint_editor" && (
+            <div className="h-full">
+              <JointEditor
+                imageUrl={robotImageUrl}
+                initialLayout={jointLayout}
+                jointCount={results?.joints?.length ?? 6}
+                onLayoutSaved={handleLayoutSaved}
+              />
+            </div>
+          )}
+
+          {!results && !showUpload && activeView !== "joint_editor" && (
             <div className="h-full card p-8 flex flex-col items-center justify-center text-center gap-4 animate-fade-in">
               <div className="w-14 h-14 rounded-2xl bg-zinc-800/60 flex items-center justify-center animate-float">
                 <Bot className="w-7 h-7 text-zinc-600" />

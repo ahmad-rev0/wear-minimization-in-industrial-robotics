@@ -45,13 +45,43 @@ def _wear_to_hex(wear_index: float) -> str:
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
-def build_robot_model(analysis_results: dict) -> dict:
+def layout_2d_to_3d(
+    layout: list[dict],
+    height_scale: float = 2.5,
+    depth_scale: float = 2.0,
+) -> dict[str, tuple[float, float, float]]:
+    """
+    Map normalised 2D side-profile coords to 3D positions.
+
+    Input:  [{joint_id, nx, ny}, ...]  (nx right, ny up, both [0,1])
+    Output: dict mapping joint_id -> (X, Y, Z) for the 3D viewer.
+
+    Mapping: ny -> Y (height, 0..height_scale),
+             nx -> Z (depth, centered around 0),
+             X  = 0 (side view is flat in X).
+    """
+    positions: dict[str, tuple[float, float, float]] = {}
+    for pt in layout:
+        jid = pt["joint_id"]
+        ny = float(pt.get("ny", 0))
+        nx = float(pt.get("nx", 0.5))
+        positions[jid] = (0.0, ny * height_scale, (nx - 0.5) * depth_scale)
+    return positions
+
+
+def build_robot_model(analysis_results: dict, custom_layout: list[dict] | None = None) -> dict:
     """
     Convert pipeline results into 3D-ready joint data.
 
     Each joint includes: position, wear metrics, colour, and status.
+    If *custom_layout* is provided, positions come from the user's 2D
+    joint mapping rather than the hardcoded defaults.
     """
     joint_lookup = {j["joint_id"]: j for j in analysis_results.get("joints", [])}
+
+    custom_positions: dict[str, tuple[float, float, float]] | None = None
+    if custom_layout:
+        custom_positions = layout_2d_to_3d(custom_layout)
 
     joints_out = []
 
@@ -61,9 +91,14 @@ def build_robot_model(analysis_results: dict) -> dict:
 
     for i, jid in enumerate(all_ids):
         jw = joint_lookup[jid]
-        pos = _DEFAULT_JOINT_POSITIONS.get(jid)
-        if pos is None:
-            pos = (0.0, 0.4 * i, 0.0)
+
+        # Priority: custom layout → default named position → fallback vertical
+        if custom_positions and jid in custom_positions:
+            pos = custom_positions[jid]
+        elif custom_positions and f"joint_{i}" in custom_positions:
+            pos = custom_positions[f"joint_{i}"]
+        else:
+            pos = _DEFAULT_JOINT_POSITIONS.get(jid, (0.0, 0.4 * i, 0.0))
 
         wear = jw.get("wear_index", 0.0)
         joints_out.append({

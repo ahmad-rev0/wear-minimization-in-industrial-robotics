@@ -276,3 +276,56 @@ export async function getModelComparison(): Promise<Record<string, ModelComparis
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
+
+/* ── Joint Mapping ──────────────────────────────────────── */
+
+export interface JointPosition2D {
+  joint_id: string;
+  nx: number;
+  ny: number;
+}
+
+export async function uploadRobotImage(file: File): Promise<{ filename: string; url: string }> {
+  const form = new FormData();
+  form.append("file", file);
+  const base = DIRECT_BACKEND || API_BASE;
+  const url = base === API_BASE ? `${API_BASE}/robot_image` : `${base}/api/robot_image`;
+  const res = await fetch(url, { method: "POST", body: form });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function getRobotImageUrl(): Promise<string | null> {
+  const res = await fetch(`${API_BASE}/robot_image`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.url ?? null;
+}
+
+export async function detectJoints(jointCount?: number): Promise<JointPosition2D[]> {
+  const qs = jointCount ? `?joint_count=${jointCount}` : "";
+  const base = DIRECT_BACKEND || API_BASE;
+  const url = base === API_BASE ? `${API_BASE}/detect_joints${qs}` : `${base}/api/detect_joints${qs}`;
+  const res = await fetch(url, { method: "POST" });
+  if (!res.ok) throw new Error(await res.text());
+  const data = await res.json();
+  return data.joints;
+}
+
+export async function getJointLayout(): Promise<JointPosition2D[] | null> {
+  const res = await fetch(`${API_BASE}/joint_layout`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.layout ?? null;
+}
+
+export async function saveJointLayout(layout: JointPosition2D[]): Promise<void> {
+  const base = DIRECT_BACKEND || API_BASE;
+  const url = base === API_BASE ? `${API_BASE}/joint_layout` : `${base}/api/joint_layout`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(layout),
+  });
+  if (!res.ok) throw new Error(await res.text());
+}

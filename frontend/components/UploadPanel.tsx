@@ -17,6 +17,7 @@ import {
   pollUntilDone,
   getResults,
   getRobotModel,
+  uploadRobotImage,
 } from "@/lib/api";
 import type { AnalysisResult, RobotModelData } from "@/lib/api";
 
@@ -56,6 +57,8 @@ export function UploadPanel({ onAnalysisComplete, loading, setLoading }: Props) 
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<string>("");
   const [logEntries, setLogEntries] = useState<string[]>([]);
+  const [robotImage, setRobotImage] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
   const elapsed = useElapsed(loading);
 
   const addLog = useCallback((msg: string) => {
@@ -295,6 +298,65 @@ export function UploadPanel({ onAnalysisComplete, loading, setLoading }: Props) 
           <p className="text-[10px] text-zinc-700">
             Uses the bundled 15K-row example sensor dataset
           </p>
+
+          {/* Robot Image Upload */}
+          <div className="flex items-center gap-3 w-full max-w-sm mt-2">
+            <div className="flex-1 h-px bg-zinc-800/60" />
+            <span className="text-[10px] text-zinc-700 font-medium uppercase tracking-widest">
+              optional
+            </span>
+            <div className="flex-1 h-px bg-zinc-800/60" />
+          </div>
+
+          <div className="w-full max-w-sm">
+            <p className="text-[12px] text-zinc-500 mb-2 text-center">
+              Upload a robot side-profile photo for{" "}
+              <span className="text-zinc-300 font-medium">joint mapping</span>
+            </p>
+            <div
+              className="border border-dashed border-zinc-800 rounded-xl p-4 text-center hover:border-zinc-600 hover:bg-zinc-900/50 transition-all cursor-pointer group"
+              onClick={() => {
+                const input = document.createElement("input");
+                input.type = "file";
+                input.accept = ".jpg,.jpeg,.png,.webp";
+                input.onchange = async () => {
+                  const file = input.files?.[0];
+                  if (!file) return;
+                  setImageUploading(true);
+                  try {
+                    const res = await uploadRobotImage(file);
+                    setRobotImage(res.url);
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Image upload failed");
+                  } finally {
+                    setImageUploading(false);
+                  }
+                };
+                input.click();
+              }}
+            >
+              {imageUploading ? (
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 text-lime-400 animate-spin" />
+                  <span className="text-[12px] text-zinc-400">Uploading image...</span>
+                </div>
+              ) : robotImage ? (
+                <div className="flex items-center justify-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span className="text-[12px] text-emerald-400">
+                    Image uploaded — open Joint Layout editor to position joints
+                  </span>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-1.5">
+                  <Upload className="w-4 h-4 text-zinc-600 group-hover:text-zinc-400 transition-colors" />
+                  <span className="text-[11px] text-zinc-600 group-hover:text-zinc-400 transition-colors">
+                    Drop a JPG / PNG robot photo, or click to browse
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
         </>
       )}
     </div>

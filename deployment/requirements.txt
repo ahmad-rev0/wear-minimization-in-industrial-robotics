@@ -7,3 +7,5 @@ scikit-learn
 scipy
 pydantic
 python-multipart
+opencv-python-headless
+scikit-image

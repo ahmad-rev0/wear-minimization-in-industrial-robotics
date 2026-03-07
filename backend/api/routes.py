@@ -669,7 +669,7 @@ async def get_robot_model():
             detail="Run an analysis first (POST /api/run_analysis).",
         )
 
-    return build_robot_model(state.results)
+    return build_robot_model(state.results, custom_layout=state.custom_joint_layout)
 
 
 # ── GET /pipeline_config ─────────────────────────────────────
@@ -720,6 +720,92 @@ async def get_model_comparison():
     """Return silhouette scores for all models that have been run."""
     state = get_state()
     return state.model_comparison
+
+
+# ── POST /robot_image ───────────────────────────────────────
+
+_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+
+
+@router.post("/robot_image")
+async def upload_robot_image(file: UploadFile = File(...)):
+    """Upload a robot side-profile photo for joint mapping."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No filename")
+    ext = Path(file.filename).suffix.lower()
+    if ext not in _IMAGE_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Accepted formats: {_IMAGE_EXTENSIONS}")
+
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    dest = UPLOAD_DIR / f"robot_image{ext}"
+    # Remove previous image
+    for old in UPLOAD_DIR.glob("robot_image.*"):
+        old.unlink(missing_ok=True)
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    state = get_state()
+    state.robot_image_path = dest
+    log.info("Robot image saved: %s", dest)
+    return {"filename": dest.name, "url": f"/uploads/{dest.name}"}
+
+
+# ── POST /detect_joints ─────────────────────────────────────
+
+@router.post("/detect_joints")
+async def detect_joints_endpoint(joint_count: int = Query(6)):
+    """Run OpenCV joint auto-detection on the uploaded robot image."""
+    state = get_state()
+    if not state.robot_image_path or not state.robot_image_path.exists():
+        raise HTTPException(status_code=400, detail="No robot image uploaded yet")
+    from backend.services.joint_detector import detect_joints
+    try:
+        joints = detect_joints(state.robot_image_path, joint_count=joint_count)
+    except Exception as exc:
+        log.exception("Joint detection failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+    state.custom_joint_layout = joints
+    return {"joints": joints}
+
+
+# ── Joint layout CRUD ───────────────────────────────────────
+
+@router.post("/joint_layout")
+async def save_joint_layout(layout: list[dict]):
+    """Save user-defined 2D normalised joint positions."""
+    for pt in layout:
+        if "joint_id" not in pt or "nx" not in pt or "ny" not in pt:
+            raise HTTPException(status_code=400, detail="Each point needs joint_id, nx, ny")
+    state = get_state()
+    state.custom_joint_layout = layout
+    log.info("Custom joint layout saved (%d joints)", len(layout))
+    return {"saved": len(layout)}
+
+
+@router.get("/joint_layout")
+async def get_joint_layout():
+    """Return custom joint layout if set, else null."""
+    state = get_state()
+    return {"layout": state.custom_joint_layout}
+
+
+@router.delete("/joint_layout")
+async def delete_joint_layout():
+    """Remove the custom layout — 3D viewer falls back to defaults."""
+    state = get_state()
+    state.custom_joint_layout = None
+    return {"deleted": True}
+
+
+# ── GET /robot_image ────────────────────────────────────────
+
+@router.get("/robot_image")
+async def get_robot_image_info():
+    """Return the URL of the currently uploaded robot image, if any."""
+    state = get_state()
+    if state.robot_image_path and state.robot_image_path.exists():
+        return {"url": f"/uploads/{state.robot_image_path.name}"}
+    return {"url": None}
 
 
 # ── GET /health ─────────────────────────────────────────────
