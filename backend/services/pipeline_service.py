@@ -41,6 +41,15 @@ def _get_canonical(sensor_csv: Path):
     canonical = state.canonical_dataset
     if canonical is None:
         df_raw = pd.read_csv(sensor_csv)
+
+        max_rows = getattr(state, "max_rows", 20000)
+        if len(df_raw) > max_rows:
+            log.warning(
+                "Dataset has %d rows, downsampling to %d for performance",
+                len(df_raw), max_rows,
+            )
+            df_raw = df_raw.sample(n=max_rows, random_state=42).sort_index().reset_index(drop=True)
+
         schema = state.inferred_schema
         if schema is None:
             schema = infer_schema(df_raw)
@@ -143,9 +152,13 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
     )
     from backend.services.state import get_state
 
+    state = get_state()
+
+    state.progress = "Ingesting dataset and inferring schema..."
     log.info("Ingesting dataset via schema-adaptive layer: %s", sensor_csv)
     canonical = _get_canonical(sensor_csv)
 
+    state.progress = f"Extracting features from {canonical.n_joints} joints..."
     log.info(
         "Extracting features (%d joints, %s modalities)",
         canonical.n_joints, sorted(canonical.all_modalities),
@@ -153,7 +166,6 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
     features = extract_features_from_canonical(canonical)
 
     # Cache full feature matrix for /available_features endpoint
-    state = get_state()
     state.cached_features = features
 
     # Apply feature selection if configured
@@ -167,23 +179,51 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
             pre_cols, post_cols,
         )
 
-    # Use configured model or default
+    # Apply feature deselection from pipeline config
+    deselected = getattr(state, "deselected_features", [])
+    if deselected:
+        to_drop = [c for c in deselected if c in features.columns and c not in {"joint_id", "timestamp"}]
+        if to_drop:
+            features = features.drop(columns=to_drop)
+            log.info("Deselected %d features per user config", len(to_drop))
+
+    # Use configured model or default, inject contamination from pipeline config
     model_config = state.model_config
+    contamination = getattr(state, "contamination", 0.1)
+    if model_config is not None:
+        if "contamination" in model_config.params or model_config.model_id in ("isolation_forest", "local_outlier_factor"):
+            model_config.params["contamination"] = contamination
+    else:
+        from pipeline.modeling.model_registry import ModelConfig
+        model_config = ModelConfig(params={"contamination": contamination})
+
+    model_name = model_config.model_id if model_config else "isolation_forest"
+    state.progress = f"Running anomaly detection ({model_name})..."
     log.info(
-        "Running anomaly detection on %d feature columns (model=%s)",
+        "Running anomaly detection on %d feature columns (model=%s, contamination=%.2f)",
         len(features.columns) - 2,
-        model_config.model_id if model_config else "isolation_forest",
+        model_name,
+        contamination,
     )
     features = detect_anomalies(features, model_config=model_config)
     anom_stats = anomaly_rate_per_joint(features)
 
-    # Generate ML diagnostics
+    state.progress = "Generating ML diagnostics report..."
     log.info("Generating ML diagnostics report")
     from pipeline.evaluation import generate_diagnostics
     diagnostics = generate_diagnostics(
         features, model_config=model_config, compute_importance=True,
     )
     state.diagnostics = diagnostics
+
+    # Store model comparison entry
+    sil = diagnostics.unsupervised.silhouette_score if diagnostics.unsupervised else None
+    state.model_comparison[diagnostics.model_id] = {
+        "display_name": diagnostics.model_display_name,
+        "silhouette_score": sil,
+        "anomaly_rate": diagnostics.unsupervised.global_anomaly_rate if diagnostics.unsupervised else 0,
+    }
+
     log.info(
         "Diagnostics: silhouette=%.4f, anomaly_rate=%.3f, top_feature=%s",
         diagnostics.unsupervised.silhouette_score or 0.0,
@@ -208,6 +248,7 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
     if jp is None:
         jp = default_joint_params(canonical.joint_names)
 
+    state.progress = "Computing wear index (Archard's law)..."
     log.info("Computing wear index (Archard's law, %d joints with physics params)", len(jp))
     wear = compute_wear_index(
         anom_stats,
@@ -218,6 +259,7 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
         sampling_rate_hz=canonical.sampling_rate_hz,
     )
 
+    state.progress = "Ranking materials and simulating wear scenarios..."
     log.info("Ranking materials")
     materials = load_materials(str(materials_csv))
     recs = rank_materials(wear, materials)
@@ -226,8 +268,10 @@ def _run_real_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
     sim = simulate_future_wear(wear)
     material_scenarios = compare_material_scenarios(wear, materials, top_n=3)
 
+    state.progress = "Building sensor timeline..."
     timeline = _build_timeline(features)
 
+    state.progress = "Finalizing results..."
     return _format_results(wear, recs, sim, material_scenarios, timeline)
 
 
@@ -293,12 +337,43 @@ def _mock_pipeline(sensor_csv: Path, materials_csv: Path) -> dict:
 # ── Helpers ──────────────────────────────────────────────────
 
 def _build_timeline(features: pd.DataFrame) -> dict:
-    """Extract time-series data for the sensor chart."""
-    sample = features.head(1000)
+    """Extract time-series data for the sensor chart.
+
+    Tries to use raw sensor data from the canonical dataset first,
+    falling back to engineered features.  Returns empty lists when no
+    meaningful numeric data is available.
+    """
+    from backend.services.state import get_state
+
+    state = get_state()
+    canonical = state.canonical_dataset
+
+    # Try raw sensor data from the canonical dataset
+    if canonical is not None:
+        first_joint_name = next(iter(canonical.joints), None)
+        if first_joint_name:
+            jd = canonical.joints[first_joint_name]
+            if jd.sensors:
+                raw_key = next(iter(jd.sensors))
+                raw_vals = jd.sensors[raw_key]
+                n = min(len(raw_vals), 1000)
+                ts = list(range(n))
+                mag = [round(float(v), 4) for v in raw_vals[:n]]
+                anomaly_col = features.get("anomaly", pd.Series(dtype=int))
+                anom = anomaly_col.head(n).tolist() if len(anomaly_col) >= n else [0] * n
+                if any(v != 0 for v in mag):
+                    return {"timestamps": ts, "magnitude": mag, "anomaly": anom}
+
+    # Fallback to engineered features
     mag_col = _find_magnitude_column(features)
+    sample = features.head(1000)
+    mag_values = sample[mag_col].round(4).tolist()
+    if all(v == 0 for v in mag_values):
+        return {"timestamps": [], "magnitude": [], "anomaly": []}
+
     return {
         "timestamps": sample["timestamp"].tolist(),
-        "magnitude": sample[mag_col].round(4).tolist(),
+        "magnitude": mag_values,
         "anomaly": sample.get("anomaly", pd.Series(dtype=int)).tolist(),
     }
 

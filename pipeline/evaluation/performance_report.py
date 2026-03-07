@@ -13,7 +13,9 @@ import pandas as pd
 
 from pipeline.evaluation.metrics import (
     UnsupervisedMetrics,
+    ThresholdAnalysis,
     compute_unsupervised_metrics,
+    compute_threshold_analysis,
 )
 from pipeline.evaluation.confusion_matrix import (
     SupervisedMetrics,
@@ -37,6 +39,7 @@ class DiagnosticsReport:
     unsupervised: Optional[UnsupervisedMetrics] = None
     supervised: Optional[SupervisedMetrics] = None
     feature_importance: Optional[FeatureImportanceResult] = None
+    threshold_analysis: Optional[ThresholdAnalysis] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to a JSON-safe dictionary."""
@@ -116,6 +119,10 @@ def generate_diagnostics(
         )
     else:
         log.info("No ground-truth labels found — supervised metrics skipped")
+
+    # Threshold analysis (always available for unsupervised)
+    log.info("Computing threshold analysis")
+    report.threshold_analysis = compute_threshold_analysis(features_df)
 
     # Feature importance (fast correlation-based by default)
     if compute_importance and len(feat_cols) > 0:

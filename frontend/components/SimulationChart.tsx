@@ -76,7 +76,26 @@ export function SimulationChart({
     ? simulation.filter((s) => s.joint_id === selectedJoint)
     : simulation;
 
-  const yDomain: [number, number] = [0, yMax / 100];
+  // For material mode, auto-scale Y to the actual data range for clarity
+  const materialYDomain: [number, number] = useMemo(() => {
+    if (mode !== "materials" || !materialData.data.length) return [0, yMax / 100];
+    let minV = Infinity;
+    let maxV = -Infinity;
+    for (const row of materialData.data) {
+      for (const mat of materialData.materials) {
+        const v = row[mat];
+        if (v !== undefined) {
+          if (v < minV) minV = v;
+          if (v > maxV) maxV = v;
+        }
+      }
+    }
+    if (!isFinite(minV)) return [0, yMax / 100];
+    const pad = (maxV - minV) * 0.15 || 0.01;
+    return [Math.max(0, minV - pad), maxV + pad];
+  }, [materialData, mode, yMax]);
+
+  const yDomain: [number, number] = mode === "materials" ? materialYDomain : [0, yMax / 100];
 
   const currentData = mode === "joints" ? jointData : materialData.data;
   const times = currentData.map((d) => d.time);
@@ -159,7 +178,7 @@ export function SimulationChart({
           {mode === "joints" ? (
             <LineChart
               data={jointData}
-              margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+              margin={{ top: 4, right: 8, bottom: 18, left: 4 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#18181f" />
               <XAxis
@@ -170,15 +189,17 @@ export function SimulationChart({
                 tickLine={false}
                 axisLine={{ stroke: "#1e1e28" }}
                 allowDataOverflow
+                label={{ value: "Time (months)", position: "insideBottom", offset: -4, fontSize: 11, fill: "#71717a" }}
               />
               <YAxis
                 domain={yDomain}
                 tick={{ fontSize: 10, fill: "#52525b" }}
                 tickLine={false}
                 axisLine={{ stroke: "#1e1e28" }}
-                width={35}
+                width={42}
                 tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
                 allowDataOverflow
+                label={{ value: "Wear Index", angle: -90, position: "insideLeft", offset: 10, fontSize: 11, fill: "#71717a" }}
               />
               <Tooltip
                 contentStyle={{
@@ -239,7 +260,7 @@ export function SimulationChart({
           ) : (
             <LineChart
               data={materialData.data}
-              margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+              margin={{ top: 4, right: 8, bottom: 18, left: 4 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#18181f" />
               <XAxis
@@ -250,15 +271,17 @@ export function SimulationChart({
                 tickLine={false}
                 axisLine={{ stroke: "#1e1e28" }}
                 allowDataOverflow
+                label={{ value: "Time (months)", position: "insideBottom", offset: -4, fontSize: 11, fill: "#71717a" }}
               />
               <YAxis
                 domain={yDomain}
                 tick={{ fontSize: 10, fill: "#52525b" }}
                 tickLine={false}
                 axisLine={{ stroke: "#1e1e28" }}
-                width={35}
-                tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
+                width={52}
+                tickFormatter={(v: number) => `${(v * 100).toFixed(2)}%`}
                 allowDataOverflow
+                label={{ value: "Wear Index", angle: -90, position: "insideLeft", offset: 10, fontSize: 11, fill: "#71717a" }}
               />
               <Tooltip
                 contentStyle={{
@@ -269,7 +292,7 @@ export function SimulationChart({
                   boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
                 }}
                 formatter={(value: number, name: unknown) => [
-                  `${(Number(value) * 100).toFixed(1)}%`,
+                  `${(Number(value) * 100).toFixed(3)}%`,
                   typeof name === "string" ? name : "",
                 ]}
               />

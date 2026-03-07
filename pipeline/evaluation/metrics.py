@@ -153,3 +153,60 @@ def compute_unsupervised_metrics(features_df: pd.DataFrame) -> UnsupervisedMetri
     )
 
     return result
+
+
+# ── Threshold analysis ─────────────────────────────────────────
+
+@dataclass
+class ThresholdPoint:
+    """One point on the threshold-vs-anomaly-count curve."""
+    threshold: float
+    n_anomalies: int
+    anomaly_rate: float
+
+
+@dataclass
+class ThresholdAnalysis:
+    """How anomaly counts vary across decision thresholds."""
+    points: list[ThresholdPoint] = field(default_factory=list)
+    current_threshold: float = 0.0
+    current_n_anomalies: int = 0
+
+
+def compute_threshold_analysis(
+    features_df: pd.DataFrame, n_points: int = 50,
+) -> ThresholdAnalysis:
+    """Sweep across score percentiles and report anomaly counts."""
+    if "anomaly_score" not in features_df.columns:
+        return ThresholdAnalysis()
+
+    scores = features_df["anomaly_score"].values
+    scores = scores[np.isfinite(scores)]
+    if len(scores) == 0:
+        return ThresholdAnalysis()
+
+    labels = features_df.get("anomaly", pd.Series(dtype=int)).values
+    current_n = int((labels == -1).sum()) if len(labels) == len(features_df) else 0
+
+    # Use the score that separates normal from anomalous as "current threshold"
+    normal_scores = scores[labels == 1] if len(labels) == len(scores) else scores
+    current_thr = float(np.max(normal_scores)) if len(normal_scores) > 0 else float(np.median(scores))
+
+    percentiles = np.linspace(0, 100, n_points)
+    thresholds = np.percentile(scores, percentiles)
+
+    points: list[ThresholdPoint] = []
+    n_total = len(scores)
+    for thr in thresholds:
+        n_anom = int((scores > thr).sum())
+        points.append(ThresholdPoint(
+            threshold=round(float(thr), 6),
+            n_anomalies=n_anom,
+            anomaly_rate=round(n_anom / max(n_total, 1), 4),
+        ))
+
+    return ThresholdAnalysis(
+        points=points,
+        current_threshold=round(current_thr, 6),
+        current_n_anomalies=current_n,
+    )

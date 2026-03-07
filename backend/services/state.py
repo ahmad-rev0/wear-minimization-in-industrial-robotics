@@ -23,6 +23,7 @@ class AppState:
     materials_csv: Path = MATERIALS_CSV
     status: str = "idle"  # idle | running | done | error
     error: Optional[str] = None
+    progress: str = ""  # human-readable pipeline stage description
     results: Optional[dict] = None
     # Schema inference + data quality (set during upload)
     inferred_schema: Optional[Any] = None   # DatasetSchema dataclass
@@ -38,6 +39,12 @@ class AppState:
     model_config: Optional[Any] = None              # ModelConfig dataclass
     # ML diagnostics (set after pipeline run)
     diagnostics: Optional[Any] = None               # DiagnosticsReport dataclass
+    # Model comparison: model_id → {silhouette, display_name}
+    model_comparison: dict = field(default_factory=dict)
+    # Pipeline config
+    max_rows: int = 20000                            # auto-downsample limit
+    contamination: float = 0.1                       # anomaly fraction for detection
+    deselected_features: list = field(default_factory=list)  # features to exclude
 
 
 _state = AppState()

@@ -27,8 +27,31 @@ interface Props {
 }
 
 export function SensorTimeline({ timeline }: Props) {
+  const isEmpty =
+    !timeline.magnitude ||
+    timeline.magnitude.length === 0 ||
+    timeline.magnitude.every((v) => v === 0);
+
   const [yZoom, setYZoom] = useState(100);
   const [xZoom, setXZoom] = useState(100);
+
+  if (isEmpty) {
+    return (
+      <div className="w-full h-full flex flex-col">
+        <div className="flex-shrink-0 flex items-center gap-2 mb-1.5">
+          <Radio className="w-3.5 h-3.5 text-lime-400" />
+          <h2 className="text-[14px] font-semibold text-zinc-200 tracking-tight">
+            Sensor Timeline
+          </h2>
+        </div>
+        <div className="flex-1 min-h-0 flex items-center justify-center">
+          <p className="text-zinc-500 text-[14px] font-medium tracking-tight">
+            Sensor Timeline not applicable.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const step = Math.max(1, Math.floor(timeline.timestamps.length / 500));
   const data = useMemo(
@@ -141,6 +164,7 @@ export function SensorTimeline({ timeline }: Props) {
               tickLine={false}
               axisLine={{ stroke: "#1e1e28" }}
               allowDataOverflow
+              label={{ value: "Sample Index", position: "insideBottom", offset: -2, fontSize: 11, fill: "#71717a" }}
             />
             <YAxis
               domain={[domainMinY, domainMaxY]}
@@ -149,6 +173,7 @@ export function SensorTimeline({ timeline }: Props) {
               axisLine={{ stroke: "#1e1e28" }}
               width={50}
               allowDataOverflow
+              label={{ value: "Signal Magnitude", angle: -90, position: "insideLeft", offset: 10, fontSize: 11, fill: "#71717a" }}
             />
             <Tooltip
               contentStyle={{

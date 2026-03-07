@@ -13,7 +13,9 @@ export interface MaterialRecommendation {
   wear_coefficient: number;
   hardness: number;
   friction_coefficient: number;
+  density: number;
   wear_reduction_pct: number;
+  practicality_score: number;
 }
 
 export interface SimulationPoint {
@@ -193,6 +195,18 @@ export interface FeatureImportance {
   top_n: number;
 }
 
+export interface ThresholdPoint {
+  threshold: number;
+  n_anomalies: number;
+  anomaly_rate: number;
+}
+
+export interface ThresholdAnalysis {
+  points: ThresholdPoint[];
+  current_threshold: number;
+  current_n_anomalies: number;
+}
+
 export interface DiagnosticsResult {
   model_id: string;
   model_display_name: string;
@@ -201,10 +215,50 @@ export interface DiagnosticsResult {
   unsupervised: UnsupervisedMetrics;
   supervised: SupervisedMetrics;
   feature_importance: FeatureImportance;
+  threshold_analysis: ThresholdAnalysis | null;
 }
 
 export async function getDiagnostics(): Promise<DiagnosticsResult> {
   const res = await fetch(`${API_BASE}/diagnostics`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+/* ── Model management ────────────────────────────────────── */
+
+export interface AvailableModel {
+  model_id: string;
+  display_name: string;
+  description: string;
+  hyperparameters: Record<string, { type: string; default: unknown; description: string }>;
+}
+
+export async function getAvailableModels(): Promise<Record<string, AvailableModel>> {
+  const res = await fetch(`${API_BASE}/available_models`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function setModelConfig(
+  model: string,
+  params: Record<string, unknown> = {},
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/model_config`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model, params }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+}
+
+export interface ModelComparisonEntry {
+  display_name: string;
+  silhouette_score: number | null;
+  anomaly_rate: number;
+}
+
+export async function getModelComparison(): Promise<Record<string, ModelComparisonEntry>> {
+  const res = await fetch(`${API_BASE}/model_comparison`);
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }

@@ -20,6 +20,7 @@ import { MaterialPanel } from "./MaterialPanel";
 import { WearStatsPanel } from "./WearStatsPanel";
 import { ExportPanel } from "./ExportPanel";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
+import { ConfigPanel } from "./ConfigPanel";
 import type { AnalysisResult, RobotModelData, DiagnosticsResult } from "@/lib/api";
 
 const RobotViewer = dynamic(
@@ -105,6 +106,7 @@ interface Props {
   robotModel: RobotModelData | null;
   diagnostics: DiagnosticsResult | null;
   onAnalysisComplete: (r: AnalysisResult, m: RobotModelData) => void;
+  onDiagnosticsUpdate?: (d: DiagnosticsResult) => void;
   loading: boolean;
   setLoading: (v: boolean) => void;
 }
@@ -114,6 +116,7 @@ export function Dashboard({
   robotModel,
   diagnostics,
   onAnalysisComplete,
+  onDiagnosticsUpdate,
   loading,
   setLoading,
 }: Props) {
@@ -255,12 +258,15 @@ export function Dashboard({
         {/* ── View content ────────────────────────── */}
         <main className="flex-1 overflow-auto p-3.5">
           {showUpload && (
-            <div className="h-full card p-0 overflow-hidden">
-              <UploadPanel
-                onAnalysisComplete={handleAnalysis}
-                loading={loading}
-                setLoading={setLoading}
-              />
+            <div className="flex flex-col gap-3.5 h-full">
+              <div className="flex-1 card p-0 overflow-hidden min-h-0">
+                <UploadPanel
+                  onAnalysisComplete={handleAnalysis}
+                  loading={loading}
+                  setLoading={setLoading}
+                />
+              </div>
+              <ConfigPanel featureNames={diagnostics?.feature_names ?? []} />
             </div>
           )}
 
@@ -340,7 +346,7 @@ export function Dashboard({
           )}
 
           {activeView === "diagnostics" && diagnostics && (
-            <DiagnosticsPanel diagnostics={diagnostics} />
+            <DiagnosticsPanel diagnostics={diagnostics} onDiagnosticsUpdate={onDiagnosticsUpdate} />
           )}
 
           {activeView === "diagnostics" && !diagnostics && results && (

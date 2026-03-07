@@ -28,6 +28,7 @@ export default function Home() {
       robotModel={robotModel}
       diagnostics={diagnostics}
       onAnalysisComplete={handleAnalysisComplete}
+      onDiagnosticsUpdate={setDiagnostics}
       loading={loading}
       setLoading={setLoading}
     />

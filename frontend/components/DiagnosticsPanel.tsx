@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   BarChart,
   Bar,
@@ -14,8 +14,6 @@ import {
   LineChart,
   Line,
   Cell,
-  PieChart,
-  Pie,
 } from "recharts";
 import {
   Brain,
@@ -24,11 +22,22 @@ import {
   Layers,
   BarChart3,
   Info,
+  RefreshCw,
+  Trophy,
 } from "lucide-react";
-import type { DiagnosticsResult } from "@/lib/api";
+import type { DiagnosticsResult, AvailableModel, ModelComparisonEntry } from "@/lib/api";
+import {
+  getAvailableModels,
+  setModelConfig,
+  runAnalysis,
+  pollUntilDone,
+  getDiagnostics,
+  getModelComparison,
+} from "@/lib/api";
 
 interface Props {
   diagnostics: DiagnosticsResult;
+  onDiagnosticsUpdate?: (d: DiagnosticsResult) => void;
 }
 
 const LIME = "#84cc16";
@@ -41,32 +50,119 @@ const ZINC_600 = "#52525b";
 const ZINC_700 = "#3f3f46";
 const ZINC_800 = "#27272a";
 
-type Tab = "overview" | "scores" | "importance" | "supervised";
+type Tab = "overview" | "scores" | "importance" | "threshold";
 
-export function DiagnosticsPanel({ diagnostics }: Props) {
+export function DiagnosticsPanel({ diagnostics, onDiagnosticsUpdate }: Props) {
   const [tab, setTab] = useState<Tab>("overview");
-  const hasSup = diagnostics.supervised?.has_labels ?? false;
+  const [models, setModels] = useState<Record<string, AvailableModel>>({});
+  const [selectedModel, setSelectedModel] = useState(diagnostics.model_id);
+  const [comparison, setComparison] = useState<Record<string, ModelComparisonEntry>>({});
+  const [rerunning, setRerunning] = useState(false);
+  const [rerunMsg, setRerunMsg] = useState<string | null>(null);
 
-  const tabs: { id: Tab; label: string; disabled?: boolean }[] = [
+  useEffect(() => {
+    getAvailableModels().then(setModels).catch(() => {});
+    getModelComparison().then(setComparison).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setSelectedModel(diagnostics.model_id);
+  }, [diagnostics.model_id]);
+
+  const handleRerun = useCallback(async () => {
+    if (rerunning) return;
+    setRerunning(true);
+    setRerunMsg("Setting model...");
+    try {
+      await setModelConfig(selectedModel);
+      setRerunMsg("Running pipeline...");
+      await runAnalysis(false);
+      await pollUntilDone((msg) => setRerunMsg(msg));
+      setRerunMsg("Fetching results...");
+      const newDiag = await getDiagnostics();
+      onDiagnosticsUpdate?.(newDiag);
+      const comp = await getModelComparison();
+      setComparison(comp);
+      setRerunMsg(null);
+    } catch (e: unknown) {
+      setRerunMsg(`Error: ${e instanceof Error ? e.message : "unknown"}`);
+    } finally {
+      setRerunning(false);
+    }
+  }, [selectedModel, rerunning, onDiagnosticsUpdate]);
+
+  // Find the best model
+  const bestModel = Object.entries(comparison).reduce<{ id: string; score: number } | null>(
+    (best, [id, entry]) => {
+      const score = entry.silhouette_score ?? -2;
+      if (!best || score > best.score) return { id, score };
+      return best;
+    },
+    null,
+  );
+
+  const tabs: { id: Tab; label: string }[] = [
     { id: "overview", label: "Overview" },
     { id: "scores", label: "Score Distribution" },
     { id: "importance", label: "Feature Importance" },
-    { id: "supervised", label: "Classification", disabled: !hasSup },
+    { id: "threshold", label: "Threshold Analysis" },
   ];
 
   return (
     <div className="flex flex-col gap-3.5 animate-fade-in">
+      {/* Model selector row */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Brain className="w-4 h-4 text-lime-400" />
+          <span className="text-[12px] text-zinc-400 font-medium">Model:</span>
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            disabled={rerunning}
+            className="bg-zinc-900 border border-zinc-700 text-zinc-200 text-[12px] rounded-lg px-3 py-1.5 
+              focus:border-lime-500/50 focus:outline-none disabled:opacity-50"
+          >
+            {Object.entries(models).map(([id, m]) => (
+              <option key={id} value={id}>
+                {m.display_name}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={handleRerun}
+            disabled={rerunning}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11.5px] font-medium
+              bg-lime-500/10 hover:bg-lime-500/20 text-lime-300 border border-lime-500/20
+              disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${rerunning ? "animate-spin" : ""}`} />
+            {rerunning ? "Running..." : "Re-run Analysis"}
+          </button>
+        </div>
+
+        {rerunMsg && (
+          <span className="text-[11px] text-zinc-500 font-mono">{rerunMsg}</span>
+        )}
+
+        {bestModel && Object.keys(comparison).length > 1 && (
+          <div className="flex items-center gap-1.5 ml-auto px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+            <Trophy className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-[11px] text-emerald-300 font-medium">
+              Best: {comparison[bestModel.id]?.display_name}
+              {bestModel.score > -2 && ` (Silhouette: ${bestModel.score.toFixed(4)})`}
+            </span>
+          </div>
+        )}
+      </div>
+
       {/* Tab bar */}
       <div className="flex gap-0.5 bg-zinc-900/90 rounded-lg p-0.5 border border-zinc-800/60 w-fit">
         {tabs.map((t) => (
           <button
             key={t.id}
-            onClick={() => !t.disabled && setTab(t.id)}
-            disabled={t.disabled}
+            onClick={() => setTab(t.id)}
             className={`px-3.5 py-1.5 text-[11.5px] rounded-md transition-all font-medium ${
-              t.disabled
-                ? "text-zinc-700 cursor-not-allowed"
-                : tab === t.id
+              tab === t.id
                 ? "bg-lime-500/15 text-lime-300"
                 : "text-zinc-500 hover:text-zinc-300"
             }`}
@@ -76,12 +172,10 @@ export function DiagnosticsPanel({ diagnostics }: Props) {
         ))}
       </div>
 
-      {tab === "overview" && <OverviewTab diagnostics={diagnostics} />}
+      {tab === "overview" && <OverviewTab diagnostics={diagnostics} comparison={comparison} />}
       {tab === "scores" && <ScoreDistributionTab diagnostics={diagnostics} />}
       {tab === "importance" && <FeatureImportanceTab diagnostics={diagnostics} />}
-      {tab === "supervised" && hasSup && (
-        <SupervisedTab diagnostics={diagnostics} />
-      )}
+      {tab === "threshold" && <ThresholdTab diagnostics={diagnostics} />}
     </div>
   );
 }
@@ -90,7 +184,7 @@ export function DiagnosticsPanel({ diagnostics }: Props) {
 /* OVERVIEW TAB                                                */
 /* ─────────────────────────────────────────────────────────── */
 
-function OverviewTab({ diagnostics }: { diagnostics: DiagnosticsResult }) {
+function OverviewTab({ diagnostics, comparison }: { diagnostics: DiagnosticsResult; comparison: Record<string, ModelComparisonEntry> }) {
   const unsup = diagnostics.unsupervised;
   const fi = diagnostics.feature_importance;
   const hasSup = diagnostics.supervised?.has_labels ?? false;
@@ -222,6 +316,46 @@ function OverviewTab({ diagnostics }: { diagnostics: DiagnosticsResult }) {
           </div>
         </div>
       </div>
+
+      {/* Model comparison */}
+      {Object.keys(comparison).length > 1 && (
+        <div className="card p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Trophy className="w-3.5 h-3.5 text-emerald-400" />
+            <h3 className="text-[13px] font-semibold text-zinc-200">Model Comparison (Silhouette Score)</h3>
+          </div>
+          <div className="h-[140px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={Object.entries(comparison).map(([id, e]) => ({
+                  name: e.display_name,
+                  silhouette: e.silhouette_score ?? 0,
+                  isCurrent: id === diagnostics.model_id,
+                }))}
+                layout="vertical"
+                margin={{ left: 10, right: 30, top: 5, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke={ZINC_800} horizontal={false} />
+                <XAxis type="number" tick={{ fill: ZINC_600, fontSize: 10 }} domain={[-1, 1]} />
+                <YAxis type="category" dataKey="name" tick={{ fill: "#a1a1aa", fontSize: 11 }} width={120} />
+                <Tooltip
+                  contentStyle={{ background: "#0e0e14", border: "1px solid #1e1e28", borderRadius: 10, fontSize: 12 }}
+                  formatter={(v: number) => [v.toFixed(4), "Silhouette"]}
+                />
+                <Bar dataKey="silhouette" radius={[0, 4, 4, 0]} maxBarSize={18}>
+                  {Object.entries(comparison).map(([id], i) => (
+                    <Cell
+                      key={i}
+                      fill={id === diagnostics.model_id ? LIME : ZINC_600}
+                      fillOpacity={0.85}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       {/* Top features quick glance */}
       {fi && fi.features.length > 0 && (
@@ -427,13 +561,119 @@ function FeatureImportanceTab({ diagnostics }: { diagnostics: DiagnosticsResult 
 }
 
 /* ─────────────────────────────────────────────────────────── */
-/* SUPERVISED / CLASSIFICATION TAB                             */
+/* THRESHOLD ANALYSIS TAB (always accessible)                  */
 /* ─────────────────────────────────────────────────────────── */
 
-function SupervisedTab({ diagnostics }: { diagnostics: DiagnosticsResult }) {
+function ThresholdTab({ diagnostics }: { diagnostics: DiagnosticsResult }) {
+  const ta = diagnostics.threshold_analysis;
   const sup = diagnostics.supervised;
-  if (!sup || !sup.has_labels || !sup.confusion_matrix) return null;
-  const cm = sup.confusion_matrix;
+  const hasSup = sup?.has_labels && sup?.confusion_matrix;
+
+  const chartData = ta?.points?.map((p) => ({
+    threshold: +p.threshold.toFixed(4),
+    anomalies: p.n_anomalies,
+    rate: +(p.anomaly_rate * 100).toFixed(2),
+  })) ?? [];
+
+  return (
+    <div className="flex flex-col gap-3.5">
+      {/* Threshold sweep chart */}
+      <div className="card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-[13px] font-semibold text-zinc-200">
+            Anomaly Count vs. Decision Threshold
+          </h3>
+          {ta && (
+            <span className="text-[11px] text-zinc-500 font-mono">
+              Current threshold: {ta.current_threshold.toFixed(4)} → {ta.current_n_anomalies} anomalies
+            </span>
+          )}
+        </div>
+        {chartData.length > 0 ? (
+          <div className="h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ left: 10, right: 20, top: 5, bottom: 18 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={ZINC_800} />
+                <XAxis
+                  dataKey="threshold"
+                  tick={{ fill: ZINC_600, fontSize: 10 }}
+                  label={{ value: "Score Threshold", position: "insideBottom", offset: -4, fill: ZINC_600, fontSize: 11 }}
+                />
+                <YAxis
+                  tick={{ fill: ZINC_600, fontSize: 10 }}
+                  label={{ value: "Anomaly Count", angle: -90, position: "insideLeft", offset: 10, fill: ZINC_600, fontSize: 11 }}
+                />
+                <Tooltip
+                  contentStyle={{ background: "#0e0e14", border: "1px solid #1e1e28", borderRadius: 10, fontSize: 12 }}
+                  formatter={(v: number, name: string) => [
+                    name === "anomalies" ? v.toLocaleString() : `${v}%`,
+                    name === "anomalies" ? "Anomaly Count" : "Anomaly Rate",
+                  ]}
+                  labelFormatter={(l: number) => `Threshold: ${l}`}
+                />
+                <Area
+                  dataKey="anomalies"
+                  stroke={LIME}
+                  strokeWidth={2}
+                  fill={LIME}
+                  fillOpacity={0.12}
+                  dot={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <p className="text-zinc-500 text-[13px] text-center py-8">
+            No threshold analysis data available for this run.
+          </p>
+        )}
+      </div>
+
+      {/* Anomaly rate sweep */}
+      {chartData.length > 0 && (
+        <div className="card p-4">
+          <h3 className="text-[13px] font-semibold text-zinc-200 mb-3">
+            Anomaly Rate (%) vs. Threshold
+          </h3>
+          <div className="h-[220px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ left: 10, right: 20, top: 5, bottom: 18 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={ZINC_800} />
+                <XAxis
+                  dataKey="threshold"
+                  tick={{ fill: ZINC_600, fontSize: 10 }}
+                  label={{ value: "Score Threshold", position: "insideBottom", offset: -4, fill: ZINC_600, fontSize: 11 }}
+                />
+                <YAxis
+                  tick={{ fill: ZINC_600, fontSize: 10 }}
+                  unit="%"
+                  label={{ value: "Anomaly Rate (%)", angle: -90, position: "insideLeft", offset: 10, fill: ZINC_600, fontSize: 11 }}
+                />
+                <Tooltip
+                  contentStyle={{ background: "#0e0e14", border: "1px solid #1e1e28", borderRadius: 10, fontSize: 12 }}
+                  formatter={(v: number) => [`${v}%`, "Anomaly Rate"]}
+                  labelFormatter={(l: number) => `Threshold: ${l}`}
+                />
+                <Line
+                  dataKey="rate"
+                  stroke={CYAN}
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Supervised section (shown when labels exist) */}
+      {hasSup && sup?.confusion_matrix && <SupervisedSection sup={sup} />}
+    </div>
+  );
+}
+
+function SupervisedSection({ sup }: { sup: NonNullable<DiagnosticsResult["supervised"]> }) {
+  const cm = sup.confusion_matrix!;
   const roc = sup.roc_curve;
 
   const cmData = [
@@ -457,8 +697,15 @@ function SupervisedTab({ diagnostics }: { diagnostics: DiagnosticsResult }) {
   ];
 
   return (
-    <div className="flex flex-col gap-3.5">
-      {/* Metric cards */}
+    <>
+      <div className="flex items-center gap-2 mt-2">
+        <div className="h-px flex-1 bg-zinc-800" />
+        <span className="text-[11.5px] text-zinc-500 font-medium px-2">
+          Ground-Truth Classification Metrics
+        </span>
+        <div className="h-px flex-1 bg-zinc-800" />
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {metricCards.map((m) => (
           <div key={m.label} className="card p-4">
@@ -476,7 +723,6 @@ function SupervisedTab({ diagnostics }: { diagnostics: DiagnosticsResult }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-        {/* Confusion matrix heatmap */}
         <div className="card p-4">
           <h3 className="text-[13px] font-semibold text-zinc-200 mb-4">Confusion Matrix</h3>
           <div className="flex flex-col items-center gap-1">
@@ -513,7 +759,6 @@ function SupervisedTab({ diagnostics }: { diagnostics: DiagnosticsResult }) {
           </div>
         </div>
 
-        {/* ROC curve */}
         {roc && roc.fpr.length > 0 && (
           <div className="card p-4">
             <div className="flex items-center justify-between mb-3">
@@ -522,22 +767,21 @@ function SupervisedTab({ diagnostics }: { diagnostics: DiagnosticsResult }) {
             </div>
             <div className="h-[240px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={rocData} margin={{ left: 10, right: 15, top: 5, bottom: 5 }}>
+                <AreaChart data={rocData} margin={{ left: 10, right: 15, top: 5, bottom: 18 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={ZINC_800} />
                   <XAxis
                     dataKey="fpr"
                     tick={{ fill: ZINC_600, fontSize: 10 }}
-                    label={{ value: "False Positive Rate", position: "insideBottom", offset: -2, fill: ZINC_600, fontSize: 11 }}
+                    label={{ value: "False Positive Rate", position: "insideBottom", offset: -4, fill: ZINC_600, fontSize: 11 }}
                   />
                   <YAxis
                     tick={{ fill: ZINC_600, fontSize: 10 }}
-                    label={{ value: "True Positive Rate", angle: -90, position: "insideLeft", fill: ZINC_600, fontSize: 11 }}
+                    label={{ value: "True Positive Rate", angle: -90, position: "insideLeft", offset: 10, fill: ZINC_600, fontSize: 11 }}
                   />
                   <Tooltip
                     contentStyle={{ background: "#0e0e14", border: "1px solid #1e1e28", borderRadius: 10, fontSize: 12 }}
                     formatter={(v: number) => [v.toFixed(4)]}
                   />
-                  {/* Diagonal reference line */}
                   <Line
                     data={[{ fpr: 0, tpr: 0 }, { fpr: 1, tpr: 1 }]}
                     dataKey="tpr"
@@ -560,6 +804,6 @@ function SupervisedTab({ diagnostics }: { diagnostics: DiagnosticsResult }) {
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }

@@ -50,18 +50,27 @@ def rank_materials(
     # The baseline material is the one with the highest (worst) wear_coefficient
     baseline_coeff = materials_df["wear_coefficient"].max()
 
+    min_density = materials_df["density"].min()
+
     recommendations = []
     for _, mat in materials_df.iterrows():
-        # Project what the wear rate would be with this material
         adjusted_rate = baseline_rate * (mat["wear_coefficient"] / baseline_coeff)
         reduction_pct = round((1.0 - adjusted_rate / baseline_rate) * 100, 2)
+        reduction_pct = max(reduction_pct, 0.0)
+
+        density = float(mat["density"])
+        # Practicality penalises heavy materials: score = reduction / relative_density
+        relative_density = density / min_density if min_density > 0 else 1.0
+        practicality_score = round(reduction_pct / relative_density, 2)
 
         recommendations.append({
             "material_name": mat["material_name"],
             "wear_coefficient": float(mat["wear_coefficient"]),
             "hardness": float(mat["hardness"]),
             "friction_coefficient": float(mat["friction_coefficient"]),
-            "wear_reduction_pct": max(reduction_pct, 0.0),
+            "density": density,
+            "wear_reduction_pct": reduction_pct,
+            "practicality_score": practicality_score,
         })
 
     recommendations.sort(key=lambda r: r["wear_reduction_pct"], reverse=True)

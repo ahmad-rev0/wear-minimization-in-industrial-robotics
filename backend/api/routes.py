@@ -560,6 +560,13 @@ async def run_analysis(
     sensor_csv = state.sensor_csv
     if use_default or sensor_csv is None:
         sensor_csv = DEFAULT_SENSOR_CSV
+        # Reset cached ingestion state so the demo dataset is re-ingested
+        state.inferred_schema = None
+        state.quality_report = None
+        state.canonical_dataset = None
+        state.cached_features = None
+        state.diagnostics = None
+        state.sensor_csv = None
 
     if not sensor_csv.exists():
         raise HTTPException(status_code=404, detail="No dataset found. Upload one first.")
@@ -573,12 +580,20 @@ async def run_analysis(
             state.results = results
             state.status = "done"
             log.info("Pipeline completed successfully")
+        except MemoryError:
+            log.exception("Pipeline ran out of memory")
+            state.status = "error"
+            state.error = (
+                "Out of memory. Try reducing the dataset size via the "
+                "downsampling setting or uploading a smaller file."
+            )
         except Exception as exc:
             log.exception("Pipeline failed")
             state.status = "error"
             state.error = str(exc)
 
-    threading.Thread(target=_run, daemon=True).start()
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
     return StatusResponse(status="running", message="Pipeline started. Poll GET /status for progress.")
 
 
@@ -594,7 +609,7 @@ async def get_status():
     elif state.status == "done":
         msg = "Analysis complete."
     elif state.status == "running":
-        msg = "Pipeline is running..."
+        msg = state.progress or "Pipeline is running..."
     return StatusResponse(status=state.status, message=msg)
 
 
@@ -653,6 +668,55 @@ async def get_robot_model():
         )
 
     return build_robot_model(state.results)
+
+
+# ── GET /pipeline_config ─────────────────────────────────────
+
+@router.get("/pipeline_config")
+async def get_pipeline_config():
+    """Return current pipeline configuration."""
+    state = get_state()
+    return {
+        "max_rows": state.max_rows,
+        "contamination": state.contamination,
+        "deselected_features": state.deselected_features,
+    }
+
+
+# ── POST /pipeline_config ────────────────────────────────────
+
+@router.post("/pipeline_config")
+async def set_pipeline_config(body: dict):
+    """Update pipeline configuration."""
+    state = get_state()
+    if "max_rows" in body:
+        state.max_rows = max(500, min(100000, int(body["max_rows"])))
+    if "contamination" in body:
+        state.contamination = max(0.01, min(0.50, float(body["contamination"])))
+    if "deselected_features" in body:
+        state.deselected_features = list(body["deselected_features"])
+    # Clear cached data so re-run uses new config
+    state.canonical_dataset = None
+    state.cached_features = None
+    state.diagnostics = None
+    log.info(
+        "Pipeline config updated: max_rows=%d, contamination=%.2f, deselected=%d features",
+        state.max_rows, state.contamination, len(state.deselected_features),
+    )
+    return {
+        "max_rows": state.max_rows,
+        "contamination": state.contamination,
+        "deselected_features": state.deselected_features,
+    }
+
+
+# ── GET /model_comparison ────────────────────────────────────
+
+@router.get("/model_comparison")
+async def get_model_comparison():
+    """Return silhouette scores for all models that have been run."""
+    state = get_state()
+    return state.model_comparison
 
 
 # ── GET /health ─────────────────────────────────────────────

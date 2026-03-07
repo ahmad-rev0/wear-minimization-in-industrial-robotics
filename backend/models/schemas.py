@@ -212,7 +212,9 @@ class MaterialRecommendation(BaseModel):
     wear_coefficient: float
     hardness: float
     friction_coefficient: float
+    density: float = 0.0
     wear_reduction_pct: float
+    practicality_score: float = 0.0
 
 
 class WearSimulationPoint(BaseModel):
@@ -312,6 +314,18 @@ class FeatureImportanceSchema(BaseModel):
     top_n: int = 0
 
 
+class ThresholdPointSchema(BaseModel):
+    threshold: float
+    n_anomalies: int
+    anomaly_rate: float
+
+
+class ThresholdAnalysisSchema(BaseModel):
+    points: list[ThresholdPointSchema] = []
+    current_threshold: float = 0.0
+    current_n_anomalies: int = 0
+
+
 class DiagnosticsResponse(BaseModel):
     """Full ML diagnostics returned by GET /diagnostics."""
     model_id: str
@@ -321,6 +335,7 @@ class DiagnosticsResponse(BaseModel):
     unsupervised: Optional[UnsupervisedMetricsSchema] = None
     supervised: Optional[SupervisedMetricsSchema] = None
     feature_importance: Optional[FeatureImportanceSchema] = None
+    threshold_analysis: Optional[ThresholdAnalysisSchema] = None
 
 
 # ── 3D Viewer ────────────────────────────────────────────────

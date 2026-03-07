@@ -158,8 +158,17 @@ def compare_material_scenarios(
     current = simulate_future_wear(wear_data, time_horizon, time_step)
     current["material_name"] = "Current Material"
 
-    # Best-N material trajectories
-    best_materials = materials_df.nsmallest(top_n, "wear_coefficient")
+    # Pick diverse materials: best, median, and one in-between
+    sorted_mats = materials_df.sort_values("wear_coefficient").reset_index(drop=True)
+    indices: list[int] = []
+    n_mats = len(sorted_mats)
+    if n_mats <= top_n:
+        indices = list(range(n_mats))
+    else:
+        step = max(1, (n_mats - 1) / (top_n - 1))
+        indices = [min(int(round(i * step)), n_mats - 1) for i in range(top_n)]
+        indices = list(dict.fromkeys(indices))
+    best_materials = sorted_mats.iloc[indices]
     improved = []
     for _, mat in best_materials.iterrows():
         sim = simulate_material_improvement(
