@@ -92,6 +92,38 @@ export function DiagnosticsPanel({ diagnostics, onDiagnosticsUpdate }: Props) {
     }
   }, [selectedModel, rerunning, onDiagnosticsUpdate]);
 
+  const handleCompareAll = useCallback(async () => {
+    if (rerunning) return;
+    setRerunning(true);
+    const modelIds = Object.keys(models);
+    if (modelIds.length === 0) {
+      setRerunMsg("No models available");
+      setRerunning(false);
+      return;
+    }
+    try {
+      for (let i = 0; i < modelIds.length; i++) {
+        const id = modelIds[i];
+        const name = models[id]?.display_name ?? id;
+        setRerunMsg(`[${i + 1}/${modelIds.length}] Running ${name}...`);
+        await setModelConfig(id);
+        await runAnalysis(false);
+        await pollUntilDone((msg) => setRerunMsg(`[${i + 1}/${modelIds.length}] ${msg}`));
+      }
+      setRerunMsg("Fetching final results...");
+      const newDiag = await getDiagnostics();
+      onDiagnosticsUpdate?.(newDiag);
+      setSelectedModel(newDiag.model_id);
+      const comp = await getModelComparison();
+      setComparison(comp);
+      setRerunMsg(null);
+    } catch (e: unknown) {
+      setRerunMsg(`Error: ${e instanceof Error ? e.message : "unknown"}`);
+    } finally {
+      setRerunning(false);
+    }
+  }, [models, rerunning, onDiagnosticsUpdate]);
+
   // Find the best model
   const bestModel = Object.entries(comparison).reduce<{ id: string; score: number } | null>(
     (best, [id, entry]) => {
@@ -138,6 +170,16 @@ export function DiagnosticsPanel({ diagnostics, onDiagnosticsUpdate }: Props) {
           >
             <RefreshCw className={`w-3.5 h-3.5 ${rerunning ? "animate-spin" : ""}`} />
             {rerunning ? "Running..." : "Re-run Analysis"}
+          </button>
+          <button
+            onClick={handleCompareAll}
+            disabled={rerunning}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11.5px] font-medium
+              bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20
+              disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            <BarChart3 className={`w-3.5 h-3.5 ${rerunning ? "animate-pulse" : ""}`} />
+            Compare All Models
           </button>
         </div>
 
@@ -326,13 +368,13 @@ function OverviewTab({ diagnostics, comparison }: { diagnostics: DiagnosticsResu
       </div>
 
       {/* Model comparison */}
-      {Object.keys(comparison).length > 1 && (
+      {Object.keys(comparison).length >= 1 && (
         <div className="card p-4">
           <div className="flex items-center gap-2 mb-3">
             <Trophy className="w-3.5 h-3.5 text-emerald-400" />
             <h3 className="text-[13px] font-semibold text-zinc-200">Model Comparison (Silhouette Score)</h3>
           </div>
-          <div className="h-[140px]">
+          <div style={{ height: Math.max(100, Object.keys(comparison).length * 36 + 30) }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={Object.entries(comparison).map(([id, e]) => ({
