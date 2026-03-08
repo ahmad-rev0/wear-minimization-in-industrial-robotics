@@ -11,6 +11,30 @@ import {
 import * as THREE from "three";
 import type { RobotModelData, JointModel } from "@/lib/api";
 
+// ── Safe environment wrapper (swallows HDR load failures) ───
+
+function SafeEnvironment() {
+  const [ok, setOk] = useState(true);
+  if (!ok) return null;
+  return (
+    <group onPointerMissed={() => {}}>
+      <ErrorCatcher onError={() => setOk(false)}>
+        <Environment preset="city" />
+      </ErrorCatcher>
+    </group>
+  );
+}
+
+class ErrorCatcher extends React.Component<
+  { children: React.ReactNode; onError: () => void },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch() { this.props.onError(); }
+  render() { return this.state.hasError ? null : this.props.children; }
+}
+
 // ── Joint sphere (clickable, wear-coded, pulses if severe) ──
 
 function JointSphere({
@@ -321,28 +345,45 @@ function RobotArm({
 
 class ViewerErrorBoundary extends React.Component<
   { children: React.ReactNode; onRetry: () => void },
-  { hasError: boolean }
+  { hasError: boolean; attempts: number }
 > {
-  state = { hasError: false };
+  state = { hasError: false, attempts: 0 };
+  private _timer: ReturnType<typeof setTimeout> | null = null;
 
   static getDerivedStateFromError() {
     return { hasError: true };
   }
 
   componentDidCatch(err: Error) {
-    console.warn("[RobotViewer] Canvas error caught — will retry:", err.message);
+    console.warn("[RobotViewer] Canvas error caught:", err.message);
+    // Auto-retry up to 3 times with increasing delay
+    if (this.state.attempts < 3) {
+      this._timer = setTimeout(() => {
+        this.setState((s) => ({ hasError: false, attempts: s.attempts + 1 }));
+        this.props.onRetry();
+      }, 600 * (this.state.attempts + 1));
+    }
   }
 
-  reset = () => this.setState({ hasError: false });
+  componentWillUnmount() {
+    if (this._timer) clearTimeout(this._timer);
+  }
 
   render() {
     if (this.state.hasError) {
+      if (this.state.attempts < 3) {
+        return (
+          <div className="w-full h-full flex items-center justify-center text-zinc-500 text-sm">
+            Retrying 3D renderer ({this.state.attempts + 1}/3)...
+          </div>
+        );
+      }
       return (
         <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-zinc-500 text-sm">
           <p>3D renderer failed to initialize</p>
           <button
             onClick={() => {
-              this.reset();
+              this.setState({ hasError: false, attempts: 0 });
               this.props.onRetry();
             }}
             className="px-4 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors text-[12px] font-medium"
@@ -562,7 +603,7 @@ export function RobotViewer({ model, selectedJoint, onJointClick, onJointOrderCh
               rotateSpeed={0.8}
             />
             <Suspense fallback={null}>
-              <Environment preset="city" />
+              <SafeEnvironment />
             </Suspense>
           </Canvas>
         </ViewerErrorBoundary>
