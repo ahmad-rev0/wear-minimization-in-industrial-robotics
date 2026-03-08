@@ -14,7 +14,7 @@ from typing import Optional, Any
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 UPLOAD_DIR = DATA_DIR / "uploads"
 MATERIALS_CSV = DATA_DIR / "materials.csv"
-DEFAULT_SENSOR_CSV = DATA_DIR / "robot_sensor_data.csv"
+DEFAULT_SENSOR_CSV = DATA_DIR / "machine_failure_dataset.csv"
 
 
 @dataclass

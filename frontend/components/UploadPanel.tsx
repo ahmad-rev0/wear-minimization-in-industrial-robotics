@@ -301,7 +301,7 @@ export function UploadPanel({ onAnalysisComplete, loading, setLoading }: Props) 
             <ArrowRight className="w-3.5 h-3.5 opacity-0 -ml-1 group-hover:opacity-100 group-hover:ml-0 transition-all" />
           </button>
           <p className="text-[10px] text-zinc-700">
-            Uses the bundled 15K-row example sensor dataset
+            Uses a bundled 1K-row machine failure dataset (3 machine types)
           </p>
 
           {/* Robot Image Upload */}
