@@ -561,14 +561,15 @@ async def run_analysis(
     sensor_csv = state.sensor_csv
     if use_default or sensor_csv is None:
         sensor_csv = DEFAULT_SENSOR_CSV
-        # Reset cached ingestion state so the demo dataset is re-ingested
-        state.inferred_schema = None
-        state.quality_report = None
-        state.canonical_dataset = None
-        state.cached_features = None
-        state.diagnostics = None
-        state.sensor_csv = None
-        state.model_comparison = {}
+        if use_default:
+            # Only wipe comparison when the user explicitly switches to demo
+            state.inferred_schema = None
+            state.quality_report = None
+            state.canonical_dataset = None
+            state.cached_features = None
+            state.diagnostics = None
+            state.sensor_csv = None
+            state.model_comparison = {}
 
     if not sensor_csv.exists():
         raise HTTPException(status_code=404, detail="No dataset found. Upload one first.")
