@@ -72,18 +72,37 @@ export interface UploadResponse {
   message: string;
 }
 
+async function wakeBackend(): Promise<void> {
+  const base = DIRECT_BACKEND || API_BASE;
+  const url = base === API_BASE ? `${API_BASE}/../health` : `${base}/health`;
+  try {
+    await fetch(url, { mode: "cors" });
+  } catch {
+    // Swallow — just a best-effort wake-up ping
+  }
+}
+
 export async function uploadDataset(file: File): Promise<UploadResponse> {
   const form = new FormData();
   form.append("file", file);
 
-  // Always upload directly to the backend to bypass the Next.js rewrite
-  // proxy's 10 MB body-size limit which truncates large CSV files.
   const base = DIRECT_BACKEND || API_BASE;
   const url = base === API_BASE ? `${API_BASE}/upload_dataset` : `${base}/api/upload_dataset`;
-  const res = await fetch(url, { method: "POST", body: form });
 
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  // Retry up to 3 times to handle Render free-tier cold starts
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      if (attempt > 0) await wakeBackend();
+      const res = await fetch(url, { method: "POST", body: form });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+    }
+  }
+  throw lastError ?? new Error("Upload failed after retries");
 }
 
 export async function runAnalysis(

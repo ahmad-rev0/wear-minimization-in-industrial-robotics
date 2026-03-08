@@ -101,22 +101,37 @@ export function DiagnosticsPanel({ diagnostics, onDiagnosticsUpdate }: Props) {
       setRerunning(false);
       return;
     }
+    let succeeded = 0;
+    let lastGoodModelId: string | null = null;
     try {
       for (let i = 0; i < modelIds.length; i++) {
         const id = modelIds[i];
         const name = models[id]?.display_name ?? id;
         setRerunMsg(`[${i + 1}/${modelIds.length}] Running ${name}...`);
-        await setModelConfig(id);
-        await runAnalysis(false);
-        await pollUntilDone((msg) => setRerunMsg(`[${i + 1}/${modelIds.length}] ${msg}`));
+        try {
+          await setModelConfig(id);
+          await runAnalysis(false);
+          await pollUntilDone((msg) => setRerunMsg(`[${i + 1}/${modelIds.length}] ${msg}`));
+          succeeded++;
+          lastGoodModelId = id;
+        } catch (modelErr) {
+          const errMsg = modelErr instanceof Error ? modelErr.message : "unknown";
+          setRerunMsg(`[${i + 1}/${modelIds.length}] ${name} failed: ${errMsg}. Continuing...`);
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+        // Update comparison chart after each model so progress is visible
+        const comp = await getModelComparison();
+        setComparison(comp);
       }
-      setRerunMsg("Fetching final results...");
-      const newDiag = await getDiagnostics();
-      onDiagnosticsUpdate?.(newDiag);
-      setSelectedModel(newDiag.model_id);
+      if (lastGoodModelId) {
+        setRerunMsg("Fetching final results...");
+        const newDiag = await getDiagnostics();
+        onDiagnosticsUpdate?.(newDiag);
+        setSelectedModel(newDiag.model_id);
+      }
       const comp = await getModelComparison();
       setComparison(comp);
-      setRerunMsg(null);
+      setRerunMsg(succeeded === modelIds.length ? null : `Done — ${succeeded}/${modelIds.length} models succeeded`);
     } catch (e: unknown) {
       setRerunMsg(`Error: ${e instanceof Error ? e.message : "unknown"}`);
     } finally {
@@ -215,7 +230,7 @@ export function DiagnosticsPanel({ diagnostics, onDiagnosticsUpdate }: Props) {
         ))}
       </div>
 
-      {tab === "overview" && <OverviewTab diagnostics={diagnostics} comparison={comparison} />}
+      {tab === "overview" && <OverviewTab diagnostics={diagnostics} comparison={comparison} bestModelId={bestModel?.id ?? null} />}
       {tab === "scores" && <ScoreDistributionTab diagnostics={diagnostics} />}
       {tab === "importance" && <FeatureImportanceTab diagnostics={diagnostics} />}
       {tab === "threshold" && <ThresholdTab diagnostics={diagnostics} />}
@@ -227,7 +242,7 @@ export function DiagnosticsPanel({ diagnostics, onDiagnosticsUpdate }: Props) {
 /* OVERVIEW TAB                                                */
 /* ─────────────────────────────────────────────────────────── */
 
-function OverviewTab({ diagnostics, comparison }: { diagnostics: DiagnosticsResult; comparison: Record<string, ModelComparisonEntry> }) {
+function OverviewTab({ diagnostics, comparison, bestModelId }: { diagnostics: DiagnosticsResult; comparison: Record<string, ModelComparisonEntry>; bestModelId: string | null }) {
   const unsup = diagnostics.unsupervised;
   const fi = diagnostics.feature_importance;
   const hasSup = diagnostics.supervised?.has_labels ?? false;
@@ -402,7 +417,7 @@ function OverviewTab({ diagnostics, comparison }: { diagnostics: DiagnosticsResu
                   {Object.entries(comparison).map(([id], i) => (
                     <Cell
                       key={i}
-                      fill={id === diagnostics.model_id ? LIME : ZINC_600}
+                      fill={id === bestModelId ? EMERALD : id === diagnostics.model_id ? LIME : ZINC_600}
                       fillOpacity={0.85}
                     />
                   ))}
